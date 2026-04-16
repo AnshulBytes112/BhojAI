@@ -1,0 +1,39 @@
+﻿node.exe : Loaded 
+Prisma config from 
+prisma.config.ts.
+At C:\Program Files\nod
+ejs\npx.ps1:29 char:3
++   & $NODE_EXE 
+$NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
+    + CategoryInfo     
+         : 
+NotSpecified:     
+(Loaded Prisma c...i   
+ sma.config.ts.:Strin  
+  g) [], RemoteExcepti 
+   on
+    + 
+FullyQualifiedErro    
+rId : NativeCommandE   
+ rror
+ 
+
+Prisma schema loaded 
+from 
+prisma\schema.prisma.
+Datasource "db": SQLite database "dev.db" at "file:./prisma/dev.db"
+
+SQLite database dev.db created at file:./prisma/dev.db
+
+Applying migration `20260416142113_init_pos_schema`
+
+The following migration(s) have been created and applied from new schema changes:
+
+prisma\migrations/
+  ΓööΓöÇ 20260416142113_init_pos_schema/
+    ΓööΓöÇ migration.sql
+
+Your database is now in sync with your schema.
+

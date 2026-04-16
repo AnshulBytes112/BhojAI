@@ -1,24 +1,64 @@
 /**
- * This is not a production server yet!
- * This is only a minimal backend to get started.
+ * BhojAI Restaurant OS - Main API Server
+ * Better than Petpooja. AI-enabled. Offline-first.
  */
 
 import express from 'express';
+import cors from 'cors';
 import * as path from 'path';
+import 'dotenv/config';
 
-import { Message } from '@bhojai/api-interfaces';
+import authRoutes from './modules/auth/auth.routes';
+import menuRoutes from './modules/menu/menu.routes';
+import ordersRoutes from './modules/pos/orders.routes';
+import tablesRoutes from './modules/pos/tables.routes';
+import inventoryRoutes from './modules/inventory/inventory.routes';
+import dashboardRoutes from './modules/dashboard/dashboard.routes';
+import aiRoutes from './modules/ai/ai.routes';
 
 const app = express();
 
+// ─── Middleware ──────────────────────────────────────────────────────────────
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
-app.get('/api', (req, res) => {
-  const welcomeMessage: Message = { message: 'Welcome to api!' };
-  res.send(welcomeMessage);
+// ─── Health check ────────────────────────────────────────────────────────────
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'BhojAI Restaurant OS API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
 });
 
+// ─── Routes ──────────────────────────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
+app.use('/api/menu', menuRoutes);
+app.use('/api/orders', ordersRoutes);
+app.use('/api/tables', tablesRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/ai', aiRoutes);
+
+// ─── 404 handler ─────────────────────────────────────────────────────────────
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+// ─── Error handler ───────────────────────────────────────────────────────────
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// ─── Start ───────────────────────────────────────────────────────────────────
 const port = process.env.PORT || 3333;
 const server = app.listen(port, () => {
-  console.log(`Listening at http://localhost:${port}/api`);
+  console.log(`\n🍽️  BhojAI Restaurant OS API`);
+  console.log(`📡 Listening at http://localhost:${port}/api`);
+  console.log(`🏥 Health: http://localhost:${port}/api/health\n`);
 });
 server.on('error', console.error);

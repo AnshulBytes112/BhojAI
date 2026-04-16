@@ -1,0 +1,95 @@
+﻿node.exe : C:\Users\ANS
+HUL\BhojAI\node_modules
+\@prisma\client\src\run
+time\getPrismaClient.ts
+:320
+At C:\Program Files\nod
+ejs\npx.ps1:29 char:3
++   & $NODE_EXE 
+$NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
+    + CategoryInfo     
+         : 
+NotSpecified:     
+(C:\Users\ANSHUL...m   
+ aClient.ts:320:Strin  
+  g) [], RemoteExcepti 
+   on
+    + 
+FullyQualifiedErro    
+rId : NativeCommandE   
+ rror
+ 
+        throw new Prism
+aClientInitializationEr
+ror(
+              ^
+
+
+PrismaClientInitializat
+ionError: 
+`PrismaClient` needs 
+to be constructed with 
+a non-empty, valid 
+`PrismaClientOptions`:
+
+```
+new PrismaClient({
+  ...
+})
+```
+
+or
+
+```
+constructor() {
+  super({ ... });
+}
+```
+          
+    at new t (C:\Users\
+ANSHUL\BhojAI\node_modu
+les\@prisma\client\src\
+runtime\getPrismaClient
+.ts:320:15)
+    at <anonymous> (C:\
+Users\ANSHUL\BhojAI\app
+s\api\src\lib\prisma.ts
+:3:16)
+    at 
+Object.<anonymous> (C:\
+Users\ANSHUL\BhojAI\app
+s\api\src\lib\prisma.ts
+:5:16)
+    at Module._compile 
+(node:internal/modules/
+cjs/loader:1554:14)
+    at 
+Object.transformer (C:\
+Users\ANSHUL\BhojAI\nod
+e_modules\tsx\dist\regi
+ster-D46fvsV_.cjs:3:110
+4)
+    at Module.load (nod
+e:internal/modules/cjs/
+loader:1289:32)
+    at Function._load (
+node:internal/modules/c
+js/loader:1108:12)
+    at TracingChannel.t
+raceSync (node:diagnost
+ics_channel:322:14)
+    at wrapModuleLoad (
+node:internal/modules/c
+js/loader:220:24)
+    at Module.require (
+node:internal/modules/c
+js/loader:1311:12) {
+  clientVersion: 
+'7.7.0',
+  errorCode: undefined,
+  retryable: undefined
+}
+
+Node.js v22.14.0

@@ -1,0 +1,226 @@
+// BhojAI Restaurant OS - Advanced POS Schema
+// SQLite-compatible schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Restaurant {
+  id                String   @id @default(cuid())
+  name              String
+  address           String?
+  phone             String?
+  email             String?
+  logoUrl           String?
+  theme             String   @default("default")
+  taxRate           Float    @default(5.0)
+  serviceChargeRate Float    @default(0.0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  users      User[]
+  categories Category[]
+  tables     RestaurantTable[]
+  orders     Order[]
+  inventory  InventoryItem[]
+}
+
+model User {
+  id           String     @id @default(cuid())
+  username     String     @unique
+  passwordHash String
+  name         String
+  role         String     @default("WAITER")
+  pin          String?
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orders       Order[]    @relation("OrderWaiter")
+  auditLogs    AuditLog[]
+}
+
+model Category {
+  id           String     @id @default(cuid())
+  name         String
+  sortOrder    Int        @default(0)
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  items        MenuItem[]
+}
+
+model MenuItem {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  price        Float
+  imageUrl     String?
+  categoryId   String
+  category     Category @relation(fields: [categoryId], references: [id])
+  isAvailable  Boolean  @default(true)
+  dietaryLabel String?
+  prepTime     Int?
+  aiTags       String?
+  sortOrder    Int      @default(0)
+  taxRate      Float?
+  hsnCode      String?
+
+  orderItems     OrderItem[]
+  modifierGroups ModifierGroup[]
+}
+
+model ModifierGroup {
+  id         String           @id @default(cuid())
+  name       String
+  isRequired Boolean          @default(false)
+  minSelect  Int              @default(0)
+  maxSelect  Int              @default(1)
+  menuItemId String
+  menuItem   MenuItem         @relation(fields: [menuItemId], references: [id])
+  options    ModifierOption[]
+}
+
+model ModifierOption {
+  id              String        @id @default(cuid())
+  name            String
+  price           Float         @default(0)
+  modifierGroupId String
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id])
+}
+
+model RestaurantTable {
+  id           String     @id @default(cuid())
+  number       String
+  label        String?
+  seatCapacity Int
+  area         String?
+  status       String     @default("AVAILABLE")
+  posX         Float?
+  posY         Float?
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  orders       Order[]
+}
+
+model Order {
+  id            String          @id @default(cuid())
+  orderNumber   String          @unique @default(cuid())
+  status        String          @default("PENDING")
+  type          String          @default("DINE_IN")
+  customerName  String?
+  customerPhone String?
+  guestCount    Int?
+  notes         String?
+  tableId       String?
+  table         RestaurantTable? @relation(fields: [tableId], references: [id])
+  waiterId      String
+  waiter        User             @relation("OrderWaiter", fields: [waiterId], references: [id])
+  restaurantId  String
+  restaurant    Restaurant       @relation(fields: [restaurantId], references: [id])
+  items         OrderItem[]
+  bill          Bill?
+  kots          KOT[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+model KOT {
+  id        String    @id @default(cuid())
+  orderId   String
+  order     Order     @relation(fields: [orderId], references: [id])
+  station   String    @default("KITCHEN")
+  status    String    @default("PENDING")
+  createdAt DateTime  @default(now())
+  items     KOTItem[]
+}
+
+model KOTItem {
+  id       String  @id @default(cuid())
+  kotId    String
+  kot      KOT     @relation(fields: [kotId], references: [id])
+  name     String
+  quantity Int
+  notes    String?
+}
+
+model OrderItem {
+  id                String   @id @default(cuid())
+  orderId           String
+  order             Order    @relation(fields: [orderId], references: [id])
+  menuItemId        String
+  menuItem          MenuItem @relation(fields: [menuItemId], references: [id])
+  quantity          Int
+  priceAtOrder      Float
+  notes             String?
+  status            String   @default("PENDING")
+  selectedModifiers String?
+  modifierTotal     Float    @default(0)
+}
+
+model Bill {
+  id             String    @id @default(cuid())
+  orderId        String    @unique
+  order          Order     @relation(fields: [orderId], references: [id])
+  subTotal       Float
+  taxAmount      Float
+  discountAmount Float     @default(0)
+  discountNote   String?
+  serviceCharge  Float     @default(0)
+  totalAmount    Float
+  roundOff       Float     @default(0)
+  isPaid         Boolean   @default(false)
+  billNumber     String?
+  splitType      String?
+  payments       Payment[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  billId        String
+  bill          Bill     @relation(fields: [billId], references: [id])
+  amount        Float
+  method        String
+  transactionId String?
+  status        String   @default("SUCCESS")
+  createdAt     DateTime @default(now())
+}
+
+model InventoryItem {
+  id           String     @id @default(cuid())
+  name         String
+  sku          String?
+  quantity     Float
+  unit         String
+  minThreshold Float?
+  costPrice    Float?
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  description String?
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model AIInsight {
+  id           String   @id @default(cuid())
+  restaurantId String
+  type         String
+  data         String
+  createdAt    DateTime @default(now())
+}

@@ -11,6 +11,7 @@ import 'dotenv/config';
 import authRoutes from './modules/auth/auth.routes';
 import menuRoutes from './modules/menu/menu.routes';
 import ordersRoutes from './modules/pos/orders.routes';
+import kotsRoutes from './modules/pos/kots.routes';
 import tablesRoutes from './modules/pos/tables.routes';
 import billsRoutes from './modules/pos/bills.routes';
 import paymentsRoutes from './modules/pos/payments.routes';
@@ -48,6 +49,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', ordersRoutes);
+app.use('/api/kots', kotsRoutes);
 app.use('/api/tables', tablesRoutes);
 app.use('/api/bills', billsRoutes);
 app.use('/api/payments', paymentsRoutes);
@@ -68,7 +70,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 // ─── Start ───────────────────────────────────────────────────────────────────
-const port = process.env.PORT || 3333;
+const port = process.env.PORT || 3334;
 const server = app.listen(port, () => {
   console.log(`\n🍽️  BhojAI Restaurant OS API`);
   console.log(`📡 Listening at http://localhost:${port}/api`);

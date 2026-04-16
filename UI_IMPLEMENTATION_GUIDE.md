@@ -183,6 +183,8 @@ Flow: Order Created → KOT auto-generated → Chef views in Kitchen Display Sys
 
 ---
 
+**Frontend Mapping**:
+- `Tab
 ### Table Management
 | Endpoint | Method | Purpose | Notes |
 |----------|--------|---------|-------|
@@ -191,9 +193,7 @@ Flow: Order Created → KOT auto-generated → Chef views in Kitchen Display Sys
 | `/api/tables/:id` | PATCH | Rename/relocate table | ADMIN/MANAGER |
 | `/api/tables/:id/status` | PATCH | Change status | PATCH `{ "status": "AVAILABLE\|OCCUPIED\|RESERVED" }` |
 | `/api/tables/:id` | DELETE | Remove table | ADMIN only |
-
-**Frontend Mapping**:
-- `TableLayout` (drag-n-drop grid) → `/api/tables` GET
+leLayout` (drag-n-drop grid) → `/api/tables` GET
   - Visual status (green=AVAILABLE, red=OCCUPIED, yellow=RESERVED)
   - Click to select → Opens order entry or existing order
   - Long-press to edit/delete (admin only)

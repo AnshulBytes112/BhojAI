@@ -3,9 +3,12 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
+    "dev": "npx nx run-many --target=serve --projects=api,frontend --parallel",
     "dev:api": "npx nx serve api",
+    "dev:frontend": "npx nx serve frontend",
     "seed": "tsx prisma/seed.ts",
-    "build:api": "npx nx build api"
+    "build:api": "npx nx build api",
+    "build:frontend": "npx nx build frontend"
   },
   "private": true,
   "devDependencies": {
@@ -53,14 +56,16 @@
     "zod": "^4.3.6"
   },
   "dependencies": {
-    "@libsql/client": "^0.17.2",
-    "@prisma/adapter-libsql": "^7.7.0",
+    "@neondatabase/serverless": "^1.0.2",
+    "@prisma/adapter-pg": "^7.7.0",
     "axios": "^1.6.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
     "next": "~16.1.6",
+    "pg": "^8.20.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zustand": "^5.0.12"
   }
 }

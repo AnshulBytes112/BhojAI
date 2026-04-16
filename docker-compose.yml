@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # PostgreSQL (Neon - use managed service instead)
+  # For local: uncomment and use local postgres
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_USER: bhojai
+  #     POSTGRES_PASSWORD: secure_password_here
+  #     POSTGRES_DB: bhojai
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+
+  bhojai:
+    build: .
+    ports:
+      - "3000:3000"   # Frontend
+      - "3333:3333"   # API
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3333
+      NEXT_PUBLIC_API_URL: http://localhost:3333/api
+    depends_on:
+      # - postgres  # Uncomment if using local postgres
+    restart: unless-stopped
+
+# volumes:
+#   postgres_data:

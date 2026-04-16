@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getStoredUser } from '../lib/api';
+import { canRoleAccessPath, getRoleHomePath, normalizeRole, type AppRole } from '../lib/roles';
 
 export function IconFlame({ className = '' }: { className?: string }) {
   return (
@@ -141,6 +143,23 @@ export function IconPrint({ className = '' }: { className?: string }) {
   );
 }
 
+export function IconEdit({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487a2.25 2.25 0 113.182 3.182L9 17.713l-4.5.75.75-4.5L16.862 3.487z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 6.75l3 3" />
+    </svg>
+  );
+}
+
+export function IconTrash({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673A2.25 2.25 0 0115.916 21.75H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0V4.875A2.25 2.25 0 0013.5 2.625h-3A2.25 2.25 0 008.25 4.875v.518m7.5 0a48.667 48.667 0 00-7.5 0" />
+    </svg>
+  );
+}
+
 export function IconWifi({ className = '' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor">
@@ -231,15 +250,21 @@ export function IconInventory({ className = '' }: { className?: string }) {
   );
 }
 
-const navItems = [
-  { href: '/pos/tables', icon: IconGrid, label: 'Tables', badge: 0 },
-  { href: '/pos/order', icon: IconClipboard, label: 'Orders', badge: 3 },
-  { href: '/pos/bills', icon: IconPrint, label: 'Bills', badge: 0 },
-  { href: '/kds', icon: IconChef, label: 'Kitchen', badge: 0 },
-  { href: '/menu', icon: IconMenu, label: 'Menu', badge: 0 },
-  { href: '/inventory', icon: IconInventory, label: 'Stock', badge: 0 },
-  { href: '/promotions', icon: IconTag, label: 'Promos', badge: 0 },
-  { href: '/analytics', icon: IconChart, label: 'Analytics', badge: 0 },
+const navItems: Array<{
+  href: string;
+  icon: ({ className }: { className?: string }) => React.JSX.Element;
+  label: string;
+  badge: number;
+  roles: AppRole[];
+}> = [
+  { href: '/pos/tables', icon: IconGrid, label: 'Tables', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/pos/order', icon: IconClipboard, label: 'Orders', badge: 3, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/pos/bills', icon: IconPrint, label: 'Bills', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/kds', icon: IconChef, label: 'Kitchen', badge: 0, roles: ['ADMIN', 'MANAGER', 'CHEF'] },
+  { href: '/menu', icon: IconMenu, label: 'Menu', badge: 0, roles: ['ADMIN', 'MANAGER', 'CHEF'] },
+  { href: '/inventory', icon: IconInventory, label: 'Stock', badge: 0, roles: ['ADMIN', 'MANAGER'] },
+  { href: '/promotions', icon: IconTag, label: 'Promos', badge: 0, roles: ['ADMIN', 'MANAGER'] },
+  { href: '/analytics', icon: IconChart, label: 'Analytics', badge: 0, roles: ['ADMIN', 'MANAGER'] },
 ];
 
 interface SidebarProps {
@@ -248,6 +273,21 @@ interface SidebarProps {
 
 export function Sidebar({ activePath }: SidebarProps) {
   const router = useRouter();
+  const [role, setRole] = useState<AppRole>('WAITER');
+
+  useEffect(() => {
+    const user = getStoredUser();
+    setRole(normalizeRole(user?.role));
+  }, [activePath]);
+
+  useEffect(() => {
+    if (!canRoleAccessPath(role, activePath)) {
+      router.replace(getRoleHomePath(role));
+    }
+  }, [activePath, role, router]);
+
+  const visibleNavItems = navItems.filter((item) => item.roles.includes(role));
+  const canOpenSettings = role === 'ADMIN';
 
   const handleExit = () => {
     localStorage.removeItem('auth.token');
@@ -262,7 +302,7 @@ export function Sidebar({ activePath }: SidebarProps) {
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activePath.startsWith(item.href);
 
@@ -281,10 +321,12 @@ export function Sidebar({ activePath }: SidebarProps) {
       </nav>
 
       <div className="sidebar-footer">
-        <button className="sidebar-item" onClick={() => router.push('/settings')}>
-          <IconCog />
-          <span>Config</span>
-        </button>
+        {canOpenSettings && (
+          <button className="sidebar-item" onClick={() => router.push('/settings')}>
+            <IconCog />
+            <span>Config</span>
+          </button>
+        )}
         <button className="sidebar-item" onClick={handleExit}>
           <IconLogout />
           <span>Exit</span>
@@ -303,21 +345,51 @@ interface TopBarProps {
   actions?: React.ReactNode;
 }
 
+const ROLE_BADGE_META: Record<AppRole, { label: string; border: string; color: string; background: string }> = {
+  ADMIN: {
+    label: 'Admin Workspace',
+    border: 'rgba(239, 68, 68, 0.35)',
+    color: '#fca5a5',
+    background: 'rgba(127, 29, 29, 0.35)',
+  },
+  MANAGER: {
+    label: 'Manager Console',
+    border: 'rgba(16, 185, 129, 0.35)',
+    color: '#86efac',
+    background: 'rgba(6, 78, 59, 0.35)',
+  },
+  WAITER: {
+    label: 'Waiter Desk',
+    border: 'rgba(59, 130, 246, 0.35)',
+    color: '#93c5fd',
+    background: 'rgba(30, 64, 175, 0.35)',
+  },
+  CHEF: {
+    label: 'Chef Station',
+    border: 'rgba(245, 158, 11, 0.35)',
+    color: '#fcd34d',
+    background: 'rgba(120, 53, 15, 0.35)',
+  },
+};
+
 export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPlaceholder, actions }: TopBarProps) {
   const [userName, setUserName] = useState('Restaurant Team');
   const [userInitials, setUserInitials] = useState('RT');
+  const [role, setRole] = useState<AppRole>('WAITER');
   const [online, setOnline] = useState(true);
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const dateStr = now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  const roleBadge = ROLE_BADGE_META[role];
 
   useEffect(() => {
     const rawUser = localStorage.getItem('auth.user');
 
     if (rawUser) {
       try {
-        const parsed = JSON.parse(rawUser) as { name?: string; username?: string };
+        const parsed = JSON.parse(rawUser) as { name?: string; username?: string; role?: string };
         const nextName = parsed.name || parsed.username || 'Restaurant Team';
+        setRole(normalizeRole(parsed.role));
         setUserName(nextName);
         setUserInitials(
           nextName
@@ -328,9 +400,12 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
             .join('') || 'RT'
         );
       } catch {
+        setRole('WAITER');
         setUserName('Restaurant Team');
         setUserInitials('RT');
       }
+    } else {
+      setRole('WAITER');
     }
 
     const syncStatus = () => setOnline(window.navigator.onLine);
@@ -376,6 +451,19 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
       <div className={`topbar-chip ${online ? '' : 'offline'}`}>
         {online ? <IconWifi /> : <IconWifiOff />}
         <span>{online ? 'Live Sync' : 'Offline Mode'}</span>
+      </div>
+
+      <div
+        className="topbar-chip"
+        style={{
+          borderColor: roleBadge.border,
+          background: roleBadge.background,
+          color: roleBadge.color,
+          fontWeight: 700,
+        }}
+      >
+        <IconUser />
+        <span>{roleBadge.label}</span>
       </div>
 
       {actions}

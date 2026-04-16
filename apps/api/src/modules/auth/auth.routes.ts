@@ -63,14 +63,24 @@ router.post('/login', async (req: Request, res: Response) => {
 // POST /api/auth/pin-login  (quick PIN for POS terminals)
 router.post('/pin-login', async (req: Request, res: Response) => {
   try {
-    const { pin, restaurantId } = req.body;
-    if (!pin || !restaurantId) {
-      return res.status(400).json({ error: 'PIN and restaurantId required' });
+    const { username, pin, restaurantId } = req.body;
+    if (!pin || (!username && !restaurantId)) {
+      return res.status(400).json({ error: 'PIN and username or restaurantId required' });
     }
 
-    const user = await prisma.user.findFirst({
-      where: { pin, restaurantId },
-    });
+    const user = username
+      ? await prisma.user.findFirst({
+          where: {
+            username,
+            pin,
+          },
+        })
+      : await prisma.user.findFirst({
+          where: {
+            pin,
+            restaurantId,
+          },
+        });
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid PIN' });

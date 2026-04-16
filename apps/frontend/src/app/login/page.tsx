@@ -4,19 +4,21 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconFlame, IconCheck } from '../components/shared';
 import { useAuthStore } from '../stores/authStore';
+import { getRoleHomePath } from '../lib/roles';
 
 const DEMO_AUTH_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === 'true';
 
 // Staff PIN entries for quick login demo
 const STAFF_PINS = [
-  { name: 'Ravi Kumar', role: 'Waiter', initials: 'RK', pin: '1234', color: '#3b82f6' },
-  { name: 'Priya Singh', role: 'Manager', initials: 'PS', pin: '5678', color: '#10b981' },
-  { name: 'Chef Arjun', role: 'Chef', initials: 'CA', pin: '9012', color: '#f59e0b' },
+  { name: 'Admin User', username: 'admin', role: 'Admin', initials: 'AU', pin: '0000', color: '#ef4444' },
+  { name: 'Ravi Kumar', username: 'waiter1', role: 'Waiter', initials: 'RK', pin: '1234', color: '#3b82f6' },
+  { name: 'Priya Singh', username: 'manager1', role: 'Manager', initials: 'PS', pin: '5678', color: '#10b981' },
+  { name: 'Chef Arjun', username: 'chef1', role: 'Chef', initials: 'CA', pin: '9012', color: '#f59e0b' },
 ];
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, setDemoSession, hydrated, isAuthenticated, hydrateFromStorage, logout } = useAuthStore();
+  const { login, pinLogin, setDemoSession, hydrated, isAuthenticated, hydrateFromStorage, logout, user } = useAuthStore();
   const [tab, setTab] = useState<'password' | 'pin'>('password');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -33,21 +35,23 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (hydrated && isAuthenticated) {
-      router.replace('/pos/tables');
+      router.replace(getRoleHomePath(user?.role));
     }
-  }, [hydrated, isAuthenticated, router]);
+  }, [hydrated, isAuthenticated, router, user?.role]);
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      await login({ username, password, pin: passwordPin || undefined });
-      router.push('/pos/tables');
+      const normalizedUsername = username.trim().toLowerCase();
+      const response = await login({ username: normalizedUsername, password, pin: passwordPin || undefined });
+      router.push(getRoleHomePath(response.user.role));
     } catch (err: unknown) {
       if (DEMO_AUTH_ENABLED) {
-        setDemoSession({ username: username || 'admin', role: 'ADMIN' });
-        router.push('/pos/tables');
+        const role = 'ADMIN';
+        setDemoSession({ username: username || 'admin', role });
+        router.push(getRoleHomePath(role));
       } else {
         logout();
         setError(err instanceof Error ? err.message : 'Login failed. Please check credentials.');
@@ -65,23 +69,42 @@ export default function LoginPage() {
   const deletePin = () => setPin((p) => p.slice(0, -1));
 
   const confirmPin = () => {
-    if (!selectedStaff) { setError('Select a staff member first'); return; }
-
-    if (!DEMO_AUTH_ENABLED) {
-      setError('Quick PIN login is demo-only. Use password login.');
+    if (!selectedStaff) {
+      setError('Select a staff member first');
       return;
     }
 
-    if (pin !== selectedStaff.pin) {
-      setError('Incorrect PIN for selected staff.');
+    if (pin.length < 4) {
+      setError('Enter a 4-digit PIN');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setDemoSession({ username: selectedStaff.name, role: selectedStaff.role.toUpperCase() });
-      router.push('/pos/tables');
-    }, 600);
+    setError('');
+
+    const run = async () => {
+      try {
+        const response = await pinLogin({ username: selectedStaff.username, pin });
+        router.push(getRoleHomePath(response.user.role));
+      } catch (err: unknown) {
+        if (DEMO_AUTH_ENABLED) {
+          if (pin !== selectedStaff.pin) {
+            setError('Incorrect PIN for selected staff.');
+            return;
+          }
+          const role = selectedStaff.role.toUpperCase();
+          setDemoSession({ username: selectedStaff.name, role });
+          router.push(getRoleHomePath(role));
+          return;
+        }
+
+        setError(err instanceof Error ? err.message : 'PIN login failed.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void run();
   };
 
   const pinDisplay = pin.replace(/./g, '●') + ''.padEnd(4 - pin.length, '○').replace(/○/g, ' ○');
@@ -236,6 +259,7 @@ export default function LoginPage() {
                     <span style={{ fontSize: 11, fontWeight: 600, color: selectedStaff?.name === s.name ? 'var(--primary)' : 'var(--on-surface-dim)' }}>
                       {s.name.split(' ')[0]}
                     </span>
+                    <span style={{ fontSize: 10, color: 'var(--on-surface-dim)' }}>@{s.username}</span>
                     <span style={{ fontSize: 10, color: 'var(--on-surface-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       {s.role}
                     </span>

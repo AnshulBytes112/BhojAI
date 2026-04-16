@@ -123,20 +123,26 @@ export default function SettingsPage() {
         method: 'POST',
         body: {
           name: staffForm.name.trim(),
-          username: staffForm.username.trim(),
+          username: staffForm.username.trim().toLowerCase(),
           password: staffForm.password,
           role: staffForm.role,
           pin: staffForm.pin || undefined,
         },
       });
       addToast({ icon: '+', title: 'Staff registered', message: `${staffForm.name} can now sign in to the POS.` });
-    } catch {
-      addToast({ icon: 'i', title: 'Preview staff entry captured', message: 'Registration could not reach the backend, but the workflow is ready for integration.' });
+    } catch (error) {
+      addToast({
+        icon: '⚠️',
+        title: 'Registration failed',
+        message: error instanceof Error ? error.message : 'Could not create staff user.',
+      });
+      return;
     } finally {
       setSaving(false);
-      setShowStaffModal(false);
-      setStaffForm({ name: '', username: '', password: '', role: 'WAITER', pin: '' });
     }
+
+    setShowStaffModal(false);
+    setStaffForm({ name: '', username: '', password: '', role: 'WAITER', pin: '' });
   };
 
   const handleCreatePromotion = async (event: FormEvent) => {
@@ -206,12 +212,12 @@ export default function SettingsPage() {
 
       <div className="pos-main">
         <TopBar
-          title="Admin Control Room"
-          subtitle="Restaurant identity, staff onboarding and promotion management"
+          title="Operations Control Room"
+          subtitle="Restaurant identity, user onboarding and promotion management"
           actions={
             <div className="flex gap-2">
               <button className="btn btn-secondary btn-sm" onClick={() => setShowStaffModal(true)}>
-                <IconUser /> Add Staff
+                <IconUser /> Add User
               </button>
               <button className="btn btn-primary btn-sm" onClick={() => setShowPromotionModal(true)}>
                 <IconPlus /> New Promotion
@@ -386,7 +392,7 @@ export default function SettingsPage() {
           <div className="modal-overlay" onClick={() => setShowStaffModal(false)}>
             <div className="modal" onClick={(event) => event.stopPropagation()}>
               <div className="modal-header">
-                <h2 className="modal-title">Register Staff</h2>
+                <h2 className="modal-title">Create New User</h2>
                 <button className="btn btn-ghost btn-icon" onClick={() => setShowStaffModal(false)}>
                   <IconX />
                 </button>
@@ -417,7 +423,7 @@ export default function SettingsPage() {
                   <input className="input-field" value={staffForm.pin} onChange={(event) => setStaffForm((prev) => ({ ...prev, pin: event.target.value }))} placeholder="Recommended for shared-device roles" />
                 </div>
                 <button className="btn btn-primary btn-full span-2" type="submit" disabled={saving}>
-                  {saving ? 'Saving...' : 'Register Staff Member'}
+                  {saving ? 'Saving...' : 'Create User'}
                 </button>
               </form>
             </div>

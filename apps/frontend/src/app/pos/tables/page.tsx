@@ -12,10 +12,10 @@ import {
   IconX,
   type ToastItem,
 } from '../../components/shared';
-import { getStoredUser } from '../../lib/api';
+import { API_BASE, getStoredUser } from '../../lib/api';
 import { useTableStore } from '../../stores/tableStore';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333/api';
+const API = API_BASE;
 
 type Status = 'AVAILABLE' | 'OCCUPIED' | 'RESERVED';
 

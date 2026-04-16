@@ -16,10 +16,10 @@ import {
   TopBar,
   type ToastItem,
 } from '../../components/shared';
-import { getStoredUser } from '../../lib/api';
+import { API_BASE, getStoredUser } from '../../lib/api';
 import { useOrderStore } from '../../stores/orderStore';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333/api';
+const API = API_BASE;
 
 interface MenuItem {
   id: string;

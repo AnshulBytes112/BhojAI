@@ -274,20 +274,23 @@ interface SidebarProps {
 export function Sidebar({ activePath }: SidebarProps) {
   const router = useRouter();
   const [role, setRole] = useState<AppRole>('WAITER');
+  const [roleReady, setRoleReady] = useState(false);
 
   useEffect(() => {
     const user = getStoredUser();
     setRole(normalizeRole(user?.role));
+    setRoleReady(true);
   }, [activePath]);
 
   useEffect(() => {
+    if (!roleReady) return;
     if (!canRoleAccessPath(role, activePath)) {
       router.replace(getRoleHomePath(role));
     }
-  }, [activePath, role, router]);
+  }, [activePath, role, roleReady, router]);
 
   const visibleNavItems = navItems.filter((item) => item.roles.includes(role));
-  const canOpenSettings = role === 'ADMIN';
+  const canOpenSettings = role === 'ADMIN' || role === 'MANAGER';
 
   const handleExit = () => {
     localStorage.removeItem('auth.token');
@@ -348,27 +351,27 @@ interface TopBarProps {
 const ROLE_BADGE_META: Record<AppRole, { label: string; border: string; color: string; background: string }> = {
   ADMIN: {
     label: 'Admin Workspace',
-    border: 'rgba(239, 68, 68, 0.35)',
-    color: '#fca5a5',
-    background: 'rgba(127, 29, 29, 0.35)',
+    border: 'rgba(185, 28, 28, 0.35)',
+    color: '#7f1d1d',
+    background: 'rgba(254, 226, 226, 0.86)',
   },
   MANAGER: {
     label: 'Manager Console',
-    border: 'rgba(16, 185, 129, 0.35)',
-    color: '#86efac',
-    background: 'rgba(6, 78, 59, 0.35)',
+    border: 'rgba(5, 150, 105, 0.35)',
+    color: '#065f46',
+    background: 'rgba(209, 250, 229, 0.88)',
   },
   WAITER: {
     label: 'Waiter Desk',
-    border: 'rgba(59, 130, 246, 0.35)',
-    color: '#93c5fd',
-    background: 'rgba(30, 64, 175, 0.35)',
+    border: 'rgba(37, 99, 235, 0.35)',
+    color: '#1e3a8a',
+    background: 'rgba(219, 234, 254, 0.88)',
   },
   CHEF: {
     label: 'Chef Station',
-    border: 'rgba(245, 158, 11, 0.35)',
-    color: '#fcd34d',
-    background: 'rgba(120, 53, 15, 0.35)',
+    border: 'rgba(217, 119, 6, 0.35)',
+    color: '#92400e',
+    background: 'rgba(254, 243, 199, 0.9)',
   },
 };
 

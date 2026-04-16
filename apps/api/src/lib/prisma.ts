@@ -1,9 +1,15 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaLibSql } from '@prisma/adapter-libsql';
+import { PrismaPg } from '@prisma/adapter-pg';
 
-const adapter = new PrismaLibSql({
-  url: process.env.DATABASE_URL || 'file:./prisma/dev.db',
-  authToken: process.env.TURSO_AUTH_TOKEN,
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL is required for PostgreSQL/Neon connections');
+}
+
+const adapter = new PrismaPg({
+  connectionString,
 });
 const prisma = new PrismaClient({ adapter });
 

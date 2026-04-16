@@ -1,12 +1,12 @@
 // BhojAI Restaurant OS - Advanced POS Schema
-// SQLite-compatible schema
+// PostgreSQL schema for Neon
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model Restaurant {

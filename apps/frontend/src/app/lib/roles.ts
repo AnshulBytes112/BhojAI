@@ -4,7 +4,7 @@ const DEFAULT_ROLE: AppRole = 'WAITER';
 
 const ROLE_HOME_PATH: Record<AppRole, string> = {
   ADMIN: '/analytics',
-  MANAGER: '/inventory',
+  MANAGER: '/analytics',
   WAITER: '/pos/tables',
   CHEF: '/kds',
 };
@@ -26,6 +26,7 @@ const ROLE_ALLOWED_PATHS: Record<AppRole, string[]> = {
     '/inventory',
     '/menu',
     '/promotions',
+    '/settings',
     '/kds',
     '/pos/tables',
     '/pos/order',

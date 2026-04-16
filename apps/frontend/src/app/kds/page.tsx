@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sidebar, TopBar, ToastContainer, IconCheck, IconX, type ToastItem } from '../components/shared';
+import { API_BASE } from '../lib/api';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333/api';
+const API = API_BASE;
 
 type KOTStatus = 'KITCHEN' | 'READY';
 

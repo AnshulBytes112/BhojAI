@@ -140,6 +140,12 @@ export default function TablesPage() {
     }
   };
 
+  const clearSessionAndRedirect = useCallback(() => {
+    localStorage.removeItem('auth.token');
+    localStorage.removeItem('auth.user');
+    router.replace('/login');
+  }, [router]);
+
   // Update clock every minute
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 30000);
@@ -150,43 +156,57 @@ export default function TablesPage() {
   const fetchTables = useCallback(async () => {
     try {
       const token = localStorage.getItem('auth.token');
+      if (!token) {
+        clearSessionAndRedirect();
+        return;
+      }
+
       const res = await fetch(`${API}/tables`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        const normalized: Table[] = (Array.isArray(data) ? data : []).map((table: any) => {
-          const liveOrder = Array.isArray(table.orders) ? table.orders[0] : undefined;
-          const billTotal = Number(liveOrder?.bill?.totalAmount || 0);
-          const itemCount = Array.isArray(liveOrder?.items)
-            ? liveOrder.items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0)
-            : 0;
 
-          return {
-            id: table.id,
-            name: table.number || table.label || table.id.slice(0, 4),
-            capacity: Number(table.seatCapacity || 0),
-            status: (table.status as Status) || 'AVAILABLE',
-            posX: typeof table.posX === 'number' ? table.posX : null,
-            posY: typeof table.posY === 'number' ? table.posY : null,
-            area: table.area || null,
-            currentOrder: liveOrder
-              ? {
-                  id: liveOrder.id,
-                  total: billTotal,
-                  itemCount,
-                  createdAt: liveOrder.createdAt,
-                }
-              : undefined,
-          };
-        });
-        setTables(normalized.length ? normalized : DEMO_TABLES);
-        syncTablesToStore(normalized.length ? normalized : DEMO_TABLES);
+      if (res.status === 401) {
+        clearSessionAndRedirect();
+        return;
       }
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch tables (${res.status})`);
+      }
+
+      const data = await res.json();
+      const normalized: Table[] = (Array.isArray(data) ? data : []).map((table: any) => {
+        const liveOrder = Array.isArray(table.orders) ? table.orders[0] : undefined;
+        const billTotal = Number(liveOrder?.bill?.totalAmount || 0);
+        const itemCount = Array.isArray(liveOrder?.items)
+          ? liveOrder.items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0)
+          : 0;
+
+        return {
+          id: table.id,
+          name: table.number || table.label || table.id.slice(0, 4),
+          capacity: Number(table.seatCapacity || 0),
+          status: (table.status as Status) || 'AVAILABLE',
+          posX: typeof table.posX === 'number' ? table.posX : null,
+          posY: typeof table.posY === 'number' ? table.posY : null,
+          area: table.area || null,
+          currentOrder: liveOrder
+            ? {
+                id: liveOrder.id,
+                total: billTotal,
+                itemCount,
+                createdAt: liveOrder.createdAt,
+              }
+            : undefined,
+        };
+      });
+      setTables(normalized.length ? normalized : DEMO_TABLES);
+      syncTablesToStore(normalized.length ? normalized : DEMO_TABLES);
     } catch {
-      // use demo data
+      setTables(DEMO_TABLES);
+      syncTablesToStore(DEMO_TABLES);
     }
-  }, []);
+  }, [clearSessionAndRedirect, syncTablesToStore]);
 
   useEffect(() => {
     const user = getStoredUser();

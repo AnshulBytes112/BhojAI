@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Frontend Dev Server",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"nx",
+				"dev",
+				"frontend"
+			],
+			"isBackground": true,
+			"group": "build"
+		}
+	]
+}

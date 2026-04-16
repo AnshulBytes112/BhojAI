@@ -26,6 +26,10 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     // Optional waiter 2FA: for WAITER users with configured PIN, require PIN after password.
+    if (user.role === 'WAITER' && user.pin && !pin) {
+      return res.status(401).json({ error: 'PIN required for waiter login' });
+    }
+
     if (user.role === 'WAITER' && user.pin && pin !== user.pin) {
       return res.status(401).json({ error: 'Invalid second factor' });
     }

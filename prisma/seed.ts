@@ -23,9 +23,15 @@ async function main() {
 
   // Create admin user
   const adminHash = await bcrypt.hash('admin123', 10);
-  const admin = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { username: 'admin' },
-    update: {},
+    update: {
+      passwordHash: adminHash,
+      name: 'Admin User',
+      role: 'ADMIN',
+      pin: '0000',
+      restaurantId: restaurant.id,
+    },
     create: {
       username: 'admin',
       passwordHash: adminHash,
@@ -40,13 +46,59 @@ async function main() {
   const waiterHash = await bcrypt.hash('waiter123', 10);
   await prisma.user.upsert({
     where: { username: 'waiter1' },
-    update: {},
+    update: {
+      passwordHash: waiterHash,
+      name: 'Ravi Kumar',
+      role: 'WAITER',
+      pin: '1234',
+      restaurantId: restaurant.id,
+    },
     create: {
       username: 'waiter1',
       passwordHash: waiterHash,
       name: 'Ravi Kumar',
       role: 'WAITER',
       pin: '1234',
+      restaurantId: restaurant.id,
+    },
+  });
+
+  const managerHash = await bcrypt.hash('manager123', 10);
+  await prisma.user.upsert({
+    where: { username: 'manager1' },
+    update: {
+      passwordHash: managerHash,
+      name: 'Priya Singh',
+      role: 'MANAGER',
+      pin: '5678',
+      restaurantId: restaurant.id,
+    },
+    create: {
+      username: 'manager1',
+      passwordHash: managerHash,
+      name: 'Priya Singh',
+      role: 'MANAGER',
+      pin: '5678',
+      restaurantId: restaurant.id,
+    },
+  });
+
+  const chefHash = await bcrypt.hash('chef123', 10);
+  await prisma.user.upsert({
+    where: { username: 'chef1' },
+    update: {
+      passwordHash: chefHash,
+      name: 'Chef Arjun',
+      role: 'CHEF',
+      pin: '9012',
+      restaurantId: restaurant.id,
+    },
+    create: {
+      username: 'chef1',
+      passwordHash: chefHash,
+      name: 'Chef Arjun',
+      role: 'CHEF',
+      pin: '9012',
       restaurantId: restaurant.id,
     },
   });
@@ -135,6 +187,8 @@ async function main() {
   console.log(`\n📋 Demo credentials:`);
   console.log(`   Admin:  username=admin  password=admin123  PIN=0000`);
   console.log(`   Waiter: username=waiter1 password=waiter123 PIN=1234`);
+  console.log(`   Manager: username=manager1 password=manager123 PIN=5678`);
+  console.log(`   Chef: username=chef1 password=chef123 PIN=9012`);
   console.log(`   Restaurant ID: ${restaurant.id}\n`);
 }
 

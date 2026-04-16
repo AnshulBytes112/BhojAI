@@ -11,6 +11,7 @@ import 'dotenv/config';
 import authRoutes from './modules/auth/auth.routes';
 import menuRoutes from './modules/menu/menu.routes';
 import ordersRoutes from './modules/pos/orders.routes';
+import kotsRoutes from './modules/pos/kots.routes';
 import tablesRoutes from './modules/pos/tables.routes';
 import billsRoutes from './modules/pos/bills.routes';
 import paymentsRoutes from './modules/pos/payments.routes';
@@ -48,6 +49,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', ordersRoutes);
+app.use('/api/kots', kotsRoutes);
 app.use('/api/tables', tablesRoutes);
 app.use('/api/bills', billsRoutes);
 app.use('/api/payments', paymentsRoutes);

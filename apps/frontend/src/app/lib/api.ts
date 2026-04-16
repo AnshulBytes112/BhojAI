@@ -1,5 +1,5 @@
 const configuredApiBase = (process.env.NEXT_PUBLIC_API_URL || '').trim();
-export const API_BASE = configuredApiBase || '/api';
+export const API_BASE = configuredApiBase || 'http://localhost:3333/api';
 
 export interface StoredUser {
   id?: string;

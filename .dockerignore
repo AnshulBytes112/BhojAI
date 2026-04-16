@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env.local
+.env
+.next
+dist
+.nx
+.vscode
+.DS_Store
+Thumbs.db
+*.log
+.vercel
+.env.*.local
+.eslintcache
+coverage

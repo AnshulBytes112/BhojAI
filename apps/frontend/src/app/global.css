@@ -395,6 +395,70 @@ ul, ol { list-style: none; }
 
 .topbar-avatar:hover { border-color: var(--primary); }
 
+.topbar-profile-menu {
+  position: absolute !important;
+  top: 100% !important;
+  right: 0 !important;
+  margin-top: 8px !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--outline-variant) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+  min-width: 200px !important;
+  padding: 12px !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.topbar-profile-header {
+  padding: 8px 8px !important;
+}
+
+.topbar-profile-name {
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  color: var(--on-surface) !important;
+}
+
+.topbar-profile-role {
+  font-size: 12px !important;
+  color: var(--on-surface-variant) !important;
+  margin-top: 2px !important;
+}
+
+.topbar-profile-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 8px !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--on-surface) !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  border-radius: var(--radius-md) !important;
+  transition: background-color var(--duration-fast) !important;
+}
+
+.topbar-profile-item:hover {
+  background-color: var(--surface-container) !important;
+}
+
+.topbar-profile-item.logout {
+  color: #d32f2f !important;
+}
+
+.topbar-profile-item.logout:hover {
+  background-color: rgba(211, 47, 47, 0.08) !important;
+}
+
+.topbar-profile-item svg {
+  width: 18px !important;
+  height: 18px !important;
+  stroke-width: 1.8 !important;
+}
+
 /* ─── Cards ──────────────────────────────────────────────────────────────────── */
 .card {
   background: rgba(255, 250, 243, 0.92);

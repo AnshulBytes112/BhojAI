@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStoredUser } from '../lib/api';
+import { useAuthStore } from '../stores/authStore';
 import { canRoleAccessPath, getRoleHomePath, normalizeRole, type AppRole } from '../lib/roles';
 
 export function IconFlame({ className = '' }: { className?: string }) {
@@ -380,6 +381,10 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
   const [userInitials, setUserInitials] = useState('RT');
   const [role, setRole] = useState<AppRole>('WAITER');
   const [online, setOnline] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const router = useRouter();
+  const { logout } = useAuthStore();
+  
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const dateStr = now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -421,6 +426,11 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
       window.removeEventListener('offline', syncStatus);
     };
   }, []);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
 
   return (
     <header className="topbar">
@@ -471,8 +481,43 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
 
       {actions}
 
-      <div className="topbar-avatar" title={userName}>
+      <div 
+        className="topbar-avatar" 
+        title={userName}
+        onClick={() => setShowProfileMenu(!showProfileMenu)}
+        style={{ position: 'relative' }}
+      >
         {userInitials}
+        
+        {showProfileMenu && (
+          <div className="topbar-profile-menu">
+            <div className="topbar-profile-header">
+              <div className="topbar-profile-name">{userName}</div>
+              <div className="topbar-profile-role">{role}</div>
+            </div>
+            <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid var(--outline-variant)' }} />
+            <button 
+              className="topbar-profile-item"
+              onClick={() => {
+                router.push('/settings');
+                setShowProfileMenu(false);
+              }}
+            >
+              <IconCog />
+              Settings
+            </button>
+            <button 
+              className="topbar-profile-item logout"
+              onClick={() => {
+                handleLogout();
+                setShowProfileMenu(false);
+              }}
+            >
+              <IconLogout />
+              Logout
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

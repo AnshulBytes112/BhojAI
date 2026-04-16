@@ -39,8 +39,14 @@ router.post('/', authorize('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Re
 
 // PATCH /api/inventory/:id
 router.patch('/:id', authorize('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+  const existing = await prisma.inventoryItem.findFirst({
+    where: { id: req.params.id, restaurantId: req.user!.restaurantId },
+    select: { id: true },
+  });
+  if (!existing) return res.status(404).json({ error: 'Item not found' });
+
   const item = await prisma.inventoryItem.update({
-    where: { id: req.params.id },
+    where: { id: existing.id },
     data: req.body,
   });
   res.json(item);
@@ -67,7 +73,13 @@ router.patch('/:id/adjust', authorize('ADMIN', 'MANAGER'), async (req: AuthReque
 
 // DELETE /api/inventory/:id
 router.delete('/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response) => {
-  await prisma.inventoryItem.delete({ where: { id: req.params.id } });
+  const existing = await prisma.inventoryItem.findFirst({
+    where: { id: req.params.id, restaurantId: req.user!.restaurantId },
+    select: { id: true },
+  });
+  if (!existing) return res.status(404).json({ error: 'Item not found' });
+
+  await prisma.inventoryItem.delete({ where: { id: existing.id } });
   res.status(204).send();
 });
 

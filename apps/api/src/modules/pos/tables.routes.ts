@@ -32,8 +32,14 @@ router.post('/', authorize('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Re
 
 // PATCH /api/tables/:id
 router.patch('/:id', authorize('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+  const existing = await prisma.restaurantTable.findFirst({
+    where: { id: req.params.id, restaurantId: req.user!.restaurantId },
+    select: { id: true },
+  });
+  if (!existing) return res.status(404).json({ error: 'Table not found' });
+
   const table = await prisma.restaurantTable.update({
-    where: { id: req.params.id },
+    where: { id: existing.id },
     data: req.body,
   });
   res.json(table);
@@ -44,8 +50,15 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response) => {
   const { status } = req.body;
   const valid = ['AVAILABLE', 'OCCUPIED', 'RESERVED'];
   if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+
+  const existing = await prisma.restaurantTable.findFirst({
+    where: { id: req.params.id, restaurantId: req.user!.restaurantId },
+    select: { id: true },
+  });
+  if (!existing) return res.status(404).json({ error: 'Table not found' });
+
   const table = await prisma.restaurantTable.update({
-    where: { id: req.params.id },
+    where: { id: existing.id },
     data: { status },
   });
   res.json(table);
@@ -53,7 +66,13 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response) => {
 
 // DELETE /api/tables/:id
 router.delete('/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response) => {
-  await prisma.restaurantTable.delete({ where: { id: req.params.id } });
+  const existing = await prisma.restaurantTable.findFirst({
+    where: { id: req.params.id, restaurantId: req.user!.restaurantId },
+    select: { id: true },
+  });
+  if (!existing) return res.status(404).json({ error: 'Table not found' });
+
+  await prisma.restaurantTable.delete({ where: { id: existing.id } });
   res.status(204).send();
 });
 

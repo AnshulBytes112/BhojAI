@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import prisma from '../lib/prisma';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import prisma from '../../lib/prisma';
+import { authenticate, AuthRequest } from '../../middleware/auth';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'bhojai_secret';
@@ -10,7 +10,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'bhojai_secret';
 // POST /api/auth/login
 router.post('/login', async (req: Request, res: Response) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, pin } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
@@ -23,6 +23,11 @@ router.post('/login', async (req: Request, res: Response) => {
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Optional waiter 2FA: for WAITER users with configured PIN, require PIN after password.
+    if (user.role === 'WAITER' && user.pin && pin !== user.pin) {
+      return res.status(401).json({ error: 'Invalid second factor' });
     }
 
     const token = jwt.sign(

@@ -12,6 +12,9 @@ import authRoutes from './modules/auth/auth.routes';
 import menuRoutes from './modules/menu/menu.routes';
 import ordersRoutes from './modules/pos/orders.routes';
 import tablesRoutes from './modules/pos/tables.routes';
+import billsRoutes from './modules/pos/bills.routes';
+import paymentsRoutes from './modules/pos/payments.routes';
+import promotionsRoutes from './modules/pos/promotions.routes';
 import inventoryRoutes from './modules/inventory/inventory.routes';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
 import aiRoutes from './modules/ai/ai.routes';
@@ -25,6 +28,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // ─── Health check ────────────────────────────────────────────────────────────
+app.get('/api', (_req, res) => {
+  res.json({
+    message: 'BhojAI Restaurant OS API is running',
+    docsHint: 'Use /api/health for health and /api/* for resources',
+  });
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
@@ -39,6 +49,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/tables', tablesRoutes);
+app.use('/api/bills', billsRoutes);
+app.use('/api/payments', paymentsRoutes);
+app.use('/api/promotions', promotionsRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/ai', aiRoutes);

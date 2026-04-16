@@ -58,11 +58,33 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Order must have at least one item' });
     }
 
+    if (items.some((item: { quantity: number }) => !item.quantity || item.quantity <= 0)) {
+      return res.status(400).json({ error: 'All items must have quantity greater than 0' });
+    }
+
+    if (tableId && type === 'DINE_IN') {
+      const table = await prisma.restaurantTable.findFirst({
+        where: { id: tableId, restaurantId: req.user!.restaurantId },
+      });
+      if (!table) {
+        return res.status(404).json({ error: 'Table not found' });
+      }
+    }
+
     // Fetch menu items for pricing
     const menuItemIds = items.map((i: { menuItemId: string }) => i.menuItemId);
     const menuItems = await prisma.menuItem.findMany({
-      where: { id: { in: menuItemIds } },
+      where: {
+        id: { in: menuItemIds },
+        category: { restaurantId: req.user!.restaurantId },
+        isAvailable: true,
+      },
     });
+
+    if (menuItems.length !== menuItemIds.length) {
+      return res.status(400).json({ error: 'One or more menu items are invalid or unavailable' });
+    }
+
     const menuMap = Object.fromEntries(menuItems.map((m) => [m.id, m]));
 
     const order = await prisma.order.create({
@@ -141,6 +163,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 router.patch('/:id/items', async (req: AuthRequest, res: Response) => {
   try {
     const { items } = req.body;
+    if (!items || items.length === 0) {
+      return res.status(400).json({ error: 'At least one item is required' });
+    }
+    if (items.some((item: { quantity: number }) => !item.quantity || item.quantity <= 0)) {
+      return res.status(400).json({ error: 'All items must have quantity greater than 0' });
+    }
+
     const order = await prisma.order.findFirst({
       where: { id: req.params.id, restaurantId: req.user!.restaurantId },
     });
@@ -150,7 +179,17 @@ router.patch('/:id/items', async (req: AuthRequest, res: Response) => {
     }
 
     const menuItemIds = items.map((i: { menuItemId: string }) => i.menuItemId);
-    const menuItems = await prisma.menuItem.findMany({ where: { id: { in: menuItemIds } } });
+    const menuItems = await prisma.menuItem.findMany({
+      where: {
+        id: { in: menuItemIds },
+        category: { restaurantId: req.user!.restaurantId },
+        isAvailable: true,
+      },
+    });
+    if (menuItems.length !== menuItemIds.length) {
+      return res.status(400).json({ error: 'One or more menu items are invalid or unavailable' });
+    }
+
     const menuMap = Object.fromEntries(menuItems.map((m) => [m.id, m]));
 
     await prisma.orderItem.createMany({
@@ -181,6 +220,15 @@ router.patch('/:id/items', async (req: AuthRequest, res: Response) => {
       },
     });
 
+    await prisma.auditLog.create({
+      data: {
+        action: 'ORDER_ITEMS_ADDED',
+        description: `Added ${items.length} item(s) to order`,
+        orderId: order.id,
+        userId: req.user!.id,
+      },
+    });
+
     const updated = await prisma.order.findUnique({
       where: { id: order.id },
       include: { items: { include: { menuItem: true } }, bill: true },
@@ -198,8 +246,14 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response) => {
   if (!validStatuses.includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
+
+  const existingOrder = await prisma.order.findFirst({
+    where: { id: req.params.id, restaurantId: req.user!.restaurantId },
+  });
+  if (!existingOrder) return res.status(404).json({ error: 'Order not found' });
+
   const order = await prisma.order.update({
-    where: { id: req.params.id },
+    where: { id: existingOrder.id },
     data: { status },
   });
 
@@ -260,6 +314,14 @@ router.post('/:id/bill', async (req: AuthRequest, res: Response) => {
 router.post('/:id/payment', async (req: AuthRequest, res: Response) => {
   try {
     const { amount, method, transactionId } = req.body;
+    const paymentAmount = Number(amount);
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      return res.status(400).json({ error: 'Payment amount must be greater than 0' });
+    }
+    if (!method || typeof method !== 'string') {
+      return res.status(400).json({ error: 'Payment method is required' });
+    }
+
     const order = await prisma.order.findFirst({
       where: { id: req.params.id, restaurantId: req.user!.restaurantId },
       include: { bill: { include: { payments: true } } },
@@ -267,10 +329,19 @@ router.post('/:id/payment', async (req: AuthRequest, res: Response) => {
     if (!order) return res.status(404).json({ error: 'Order not found' });
     if (!order.bill) return res.status(400).json({ error: 'Generate bill first' });
 
+    const alreadyPaid = order.bill.payments.reduce((sum, p) => sum + p.amount, 0);
+    const remaining = parseFloat((order.bill.totalAmount - alreadyPaid).toFixed(2));
+    if (remaining <= 0) {
+      return res.status(400).json({ error: 'Bill is already fully paid' });
+    }
+    if (paymentAmount > remaining) {
+      return res.status(400).json({ error: `Payment exceeds due amount. Remaining: ${remaining}` });
+    }
+
     const payment = await prisma.payment.create({
       data: {
         billId: order.bill.id,
-        amount,
+        amount: paymentAmount,
         method,
         transactionId,
         status: 'SUCCESS',
@@ -279,7 +350,7 @@ router.post('/:id/payment', async (req: AuthRequest, res: Response) => {
 
     // Check if fully paid
     const totalPaid = [...order.bill.payments, payment].reduce((s, p) => s + p.amount, 0);
-    if (totalPaid >= order.bill.totalAmount) {
+    if (totalPaid >= order.bill.totalAmount - 0.01) {
       await prisma.bill.update({ where: { id: order.bill.id }, data: { isPaid: true } });
       await prisma.order.update({ where: { id: order.id }, data: { status: 'COMPLETED' } });
       if (order.tableId) {
@@ -290,7 +361,7 @@ router.post('/:id/payment', async (req: AuthRequest, res: Response) => {
     await prisma.auditLog.create({
       data: {
         action: 'PAYMENT_RECEIVED',
-        description: `Payment of ₹${amount} via ${method}`,
+        description: `Payment of ₹${paymentAmount} via ${method}`,
         orderId: order.id,
         userId: req.user!.id,
       },
@@ -300,6 +371,23 @@ router.post('/:id/payment', async (req: AuthRequest, res: Response) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to process payment' });
   }
+});
+
+// GET /api/orders/:id/audit-logs - Track all bill/order edits for fraud control
+router.get('/:id/audit-logs', async (req: AuthRequest, res: Response) => {
+  const order = await prisma.order.findFirst({
+    where: { id: req.params.id, restaurantId: req.user!.restaurantId },
+    select: { id: true },
+  });
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+
+  const logs = await prisma.auditLog.findMany({
+    where: { orderId: order.id },
+    include: { user: { select: { id: true, name: true, role: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  res.json(logs);
 });
 
 export default router;

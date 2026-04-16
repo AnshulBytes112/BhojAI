@@ -48,6 +48,13 @@ router.get('/items', async (req: AuthRequest, res: Response) => {
 // POST /api/menu/items
 router.post('/items', authorize('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
   const { name, description, price, imageUrl, categoryId, dietaryLabel, prepTime, aiTags, taxRate, hsnCode } = req.body;
+
+  const category = await prisma.category.findFirst({
+    where: { id: categoryId, restaurantId: req.user!.restaurantId },
+    select: { id: true },
+  });
+  if (!category) return res.status(404).json({ error: 'Category not found' });
+
   const item = await prisma.menuItem.create({
     data: { name, description, price, imageUrl, categoryId, dietaryLabel, prepTime, aiTags, taxRate, hsnCode },
     include: { modifierGroups: { include: { options: true } } },
@@ -58,6 +65,20 @@ router.post('/items', authorize('ADMIN', 'MANAGER'), async (req: AuthRequest, re
 // PATCH /api/menu/items/:id
 router.patch('/items/:id', authorize('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
+  const existing = await prisma.menuItem.findFirst({
+    where: { id, category: { restaurantId: req.user!.restaurantId } },
+    select: { id: true },
+  });
+  if (!existing) return res.status(404).json({ error: 'Item not found' });
+
+  if (req.body.categoryId) {
+    const targetCategory = await prisma.category.findFirst({
+      where: { id: req.body.categoryId, restaurantId: req.user!.restaurantId },
+      select: { id: true },
+    });
+    if (!targetCategory) return res.status(400).json({ error: 'Target category not found in restaurant' });
+  }
+
   const item = await prisma.menuItem.update({
     where: { id },
     data: req.body,
@@ -68,13 +89,21 @@ router.patch('/items/:id', authorize('ADMIN', 'MANAGER'), async (req: AuthReques
 
 // DELETE /api/menu/items/:id
 router.delete('/items/:id', authorize('ADMIN'), async (req: AuthRequest, res: Response) => {
-  await prisma.menuItem.delete({ where: { id: req.params.id } });
+  const existing = await prisma.menuItem.findFirst({
+    where: { id: req.params.id, category: { restaurantId: req.user!.restaurantId } },
+    select: { id: true },
+  });
+  if (!existing) return res.status(404).json({ error: 'Item not found' });
+
+  await prisma.menuItem.delete({ where: { id: existing.id } });
   res.status(204).send();
 });
 
 // PATCH /api/menu/items/:id/toggle  (quick toggle availability)
 router.patch('/items/:id/toggle', authorize('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
-  const item = await prisma.menuItem.findUnique({ where: { id: req.params.id } });
+  const item = await prisma.menuItem.findFirst({
+    where: { id: req.params.id, category: { restaurantId: req.user!.restaurantId } },
+  });
   if (!item) return res.status(404).json({ error: 'Item not found' });
   const updated = await prisma.menuItem.update({
     where: { id: req.params.id },
@@ -86,6 +115,13 @@ router.patch('/items/:id/toggle', authorize('ADMIN', 'MANAGER'), async (req: Aut
 // POST /api/menu/items/:id/modifiers  - Add modifier group
 router.post('/items/:menuItemId/modifiers', authorize('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
   const { name, isRequired, minSelect, maxSelect, options } = req.body;
+
+  const item = await prisma.menuItem.findFirst({
+    where: { id: req.params.menuItemId, category: { restaurantId: req.user!.restaurantId } },
+    select: { id: true },
+  });
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+
   const group = await prisma.modifierGroup.create({
     data: {
       name,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sidebar, TopBar, ToastContainer, IconCheck, IconX, type ToastItem } from '../components/shared';
 import { API_BASE } from '../lib/api';
 
@@ -36,6 +37,7 @@ function isUrgent(iso: string) {
 const STATUS_ORDER: KOTStatus[] = ['KITCHEN', 'READY'];
 
 export default function KDSPage() {
+  const router = useRouter();
   const [kots, setKots] = useState<KOT[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,6 +51,12 @@ export default function KDSPage() {
     setToasts((p) => [...p, { ...t, id }]);
     setTimeout(() => setToasts((p) => p.filter((x) => x.id !== id)), 4000);
   };
+
+  const clearSessionAndRedirect = useCallback(() => {
+    localStorage.removeItem('auth.token');
+    localStorage.removeItem('auth.user');
+    router.replace('/login');
+  }, [router]);
 
   const playPendingAlert = useCallback(() => {
     if (!isSoundOn || typeof window === 'undefined') return;
@@ -78,6 +86,11 @@ export default function KDSPage() {
     setLoading(true);
     try {
       const token = localStorage.getItem('auth.token');
+      if (!token) {
+        clearSessionAndRedirect();
+        return;
+      }
+
       // Flow-aligned KDS feed: kitchen board is driven from order status.
       const [kitchenRes, readyRes] = await Promise.all([
         fetch(`${API}/orders?status=KITCHEN`, {
@@ -87,6 +100,11 @@ export default function KDSPage() {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
+
+      if (kitchenRes.status === 401 || readyRes.status === 401) {
+        clearSessionAndRedirect();
+        return;
+      }
 
       if (!kitchenRes.ok || !readyRes.ok) {
         throw new Error('Failed to fetch kitchen board orders');
@@ -133,7 +151,7 @@ export default function KDSPage() {
     } finally {
       setLoading(false);
     }
-  }, [playPendingAlert]);
+  }, [clearSessionAndRedirect, playPendingAlert]);
 
   useEffect(() => {
     void fetchKOTs();
@@ -149,11 +167,21 @@ export default function KDSPage() {
 
     try {
       const token = localStorage.getItem('auth.token');
+      if (!token) {
+        clearSessionAndRedirect();
+        return;
+      }
+
       const res = await fetch(`${API}/orders/${kot.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: nextStatus }),
       });
+
+      if (res.status === 401) {
+        clearSessionAndRedirect();
+        return;
+      }
 
       if (!res.ok) {
         throw new Error('Failed to update order status');

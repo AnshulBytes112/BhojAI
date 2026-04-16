@@ -107,6 +107,12 @@ interface BillHistoryItem {
   childBills?: Array<{ id: string; totalAmount: number; isPaid: boolean }>;
 }
 
+interface RestaurantTableLookup {
+  id: string;
+  number?: string | null;
+  label?: string | null;
+}
+
 interface ReprintPayload {
   bill?: {
     id: string;
@@ -1002,6 +1008,28 @@ function OrderEntryContent() {
     setIsVoiceListening(false);
   };
 
+  const resolveTableIdForDineIn = useCallback(
+    async (rawInput: string) => {
+      const input = rawInput.trim();
+      if (!input) return '';
+
+      const normalized = input.toLowerCase();
+      const tables = (await callApi('/tables')) as RestaurantTableLookup[];
+
+      const exactId = tables.find((table) => table.id === input);
+      if (exactId) return exactId.id;
+
+      const byNumber = tables.find((table) => (table.number || '').toLowerCase() === normalized);
+      if (byNumber) return byNumber.id;
+
+      const byLabel = tables.find((table) => (table.label || '').toLowerCase() === normalized);
+      if (byLabel) return byLabel.id;
+
+      return '';
+    },
+    [callApi]
+  );
+
   const createOrder = async () => {
     if (cart.length === 0) {
       addToast({ icon: '⚠️', title: 'Cart is empty', message: 'Add items before creating an order.' });
@@ -1015,8 +1043,24 @@ function OrderEntryContent() {
 
     setLoading((s) => ({ ...s, creatingOrder: true }));
     try {
+      let resolvedTableId = tableId.trim();
+      if (type === 'DINE_IN') {
+        resolvedTableId = await resolveTableIdForDineIn(resolvedTableId);
+        if (!resolvedTableId) {
+          addToast({
+            icon: '⚠️',
+            title: 'Invalid table',
+            message: 'Use a valid table ID/number from Tables screen (e.g. T5).',
+          });
+          return;
+        }
+        if (resolvedTableId !== tableId) {
+          setTableId(resolvedTableId);
+        }
+      }
+
       const payload = {
-        tableId: type === 'DINE_IN' ? tableId : undefined,
+        tableId: type === 'DINE_IN' ? resolvedTableId : undefined,
         type,
         customerName: customerName || undefined,
         customerPhone: customerPhone || undefined,
@@ -1469,7 +1513,7 @@ function OrderEntryContent() {
                   <option value="TAKEAWAY">Takeaway</option>
                   <option value="DELIVERY">Delivery</option>
                 </select>
-                <input className="input-field" value={tableId} onChange={(e) => setTableId(e.target.value)} placeholder={`Table ID (${tableName})`} />
+                <input className="input-field" value={tableId} onChange={(e) => setTableId(e.target.value)} placeholder={`Table ID / Number (${tableName})`} />
                 <input className="input-field" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer name" />
                 <input className="input-field" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Customer phone" />
                 <input className="input-field" type="number" min={1} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value || 1))} placeholder="Guest count" />

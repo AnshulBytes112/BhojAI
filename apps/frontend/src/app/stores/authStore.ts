@@ -37,9 +37,24 @@ interface AuthState {
 
 const DEMO_AUTH_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === 'true';
 
+function parseJwt(token: string) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
+}
+
 function isTokenUsable(token: string | null) {
   if (!token) return false;
   if (token === 'demo-token' && !DEMO_AUTH_ENABLED) return false;
+  if (token !== 'demo-token') {
+    const decoded = parseJwt(token);
+    // If there's an exp claim, check it (with 5 min buffer). If invalid format, return false.
+    if (decoded?.exp && decoded.exp * 1000 < Date.now() + 5000) {
+      return false;
+    }
+  }
   return true;
 }
 

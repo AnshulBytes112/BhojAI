@@ -36,9 +36,10 @@ const ROLE_ALLOWED_PATHS: Record<AppRole, string[]> = {
     '/pos/bills',
     '/pos/reservations',
     '/invoice',
+    '/invoice/receipt',
   ],
   WAITER: ['/pos/tables', '/pos/order', '/pos/bills', '/pos/reservations', '/invoice', '/invoice/receipt'],
-  CHEF: ['/kds', '/menu'],
+  CHEF: ['/kds', '/menu', '/pos/order'],
 };
 
 export function normalizeRole(role: string | null | undefined): AppRole {
@@ -54,6 +55,10 @@ export function getRoleHomePath(role: string | null | undefined): string {
 }
 
 export function canRoleAccessPath(role: string | null | undefined, path: string): boolean {
+  // Always allow /pos/order for all authenticated users
+  if (path === '/pos/order' || path.startsWith('/pos/order/')) {
+    return true;
+  }
   const allowedPrefixes = ROLE_ALLOWED_PATHS[normalizeRole(role)];
   return allowedPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }

@@ -77,45 +77,12 @@ const AREA_ZONES = [
 
 const GRID_SIZE_PERCENT = 4;
 
-// Demo data
-const DEMO_TABLES: Table[] = [
-  { id: 't1',  name: 'T01', capacity: 2, status: 'AVAILABLE' },
-  { id: 't2',  name: 'T02', capacity: 4, status: 'OCCUPIED',  currentOrder: { id: 'o1', total: 1240, itemCount: 5, createdAt: new Date(Date.now()-34*60000).toISOString() } },
-  { id: 't3',  name: 'T03', capacity: 6, status: 'RESERVED' },
-  { id: 't4',  name: 'T04', capacity: 4, status: 'AVAILABLE' },
-  { id: 't5',  name: 'T05', capacity: 8, status: 'OCCUPIED',  currentOrder: { id: 'o2', total: 3680, itemCount: 12, createdAt: new Date(Date.now()-18*60000).toISOString() } },
-  { id: 't6',  name: 'T06', capacity: 2, status: 'AVAILABLE' },
-  { id: 't7',  name: 'T07', capacity: 4, status: 'OCCUPIED',  currentOrder: { id: 'o3', total: 890,  itemCount: 3,  createdAt: new Date(Date.now()-7*60000).toISOString() } },
-  { id: 't8',  name: 'T08', capacity: 4, status: 'RESERVED' },
-  { id: 't9',  name: 'T09', capacity: 2, status: 'AVAILABLE' },
-  { id: 't10', name: 'T10', capacity: 6, status: 'OCCUPIED',  currentOrder: { id: 'o4', total: 2100, itemCount: 8,  createdAt: new Date(Date.now()-55*60000).toISOString() } },
-  { id: 't11', name: 'T11', capacity: 4, status: 'AVAILABLE' },
-  { id: 't12', name: 'T12', capacity: 4, status: 'OCCUPIED',  currentOrder: { id: 'o5', total: 560,  itemCount: 2,  createdAt: new Date(Date.now()-4*60000).toISOString() } },
-  { id: 't13', name: 'T13', capacity: 8, status: 'AVAILABLE' },
-  { id: 't14', name: 'T14', capacity: 2, status: 'RESERVED' },
-  { id: 't15', name: 'T15', capacity: 4, status: 'AVAILABLE' },
-  { id: 't16', name: 'T16', capacity: 6, status: 'OCCUPIED',  currentOrder: { id: 'o6', total: 4200, itemCount: 15, createdAt: new Date(Date.now()-42*60000).toISOString() } },
-  { id: 't17', name: 'T17', capacity: 2, status: 'AVAILABLE' },
-  { id: 't18', name: 'T18', capacity: 4, status: 'AVAILABLE' },
-  { id: 't19', name: 'T19', capacity: 6, status: 'OCCUPIED',  currentOrder: { id: 'o7', total: 1850, itemCount: 7,  createdAt: new Date(Date.now()-22*60000).toISOString() } },
-  { id: 't20', name: 'T20', capacity: 4, status: 'AVAILABLE' },
-];
-
-function getElapsed(iso: string) {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 60) return `${mins}m`;
-  return `${Math.floor(mins/60)}h ${mins%60}m`;
-}
-
-function isLongWait(iso: string) {
-  return (Date.now() - new Date(iso).getTime()) > 45 * 60000;
-}
-
-export default function TablesPage() {
+function TablesPage() {
   const router = useRouter();
-  const syncTablesToStore = useTableStore((state) => state.setTables);
+  const setTablesInStore = useTableStore((state) => state.setTables);
   const setSelectedTableId = useTableStore((state) => state.setSelectedTableId);
-  const [tables, setTables] = useState<Table[]>(DEMO_TABLES);
+
+  const [tables, setTables] = useState<Table[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'ALL' | Status>('ALL');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -133,6 +100,7 @@ export default function TablesPage() {
   const [statusFlashTableId, setStatusFlashTableId] = useState<string>('');
   const longPressTimerRef = useRef<number | null>(null);
   const floorRef = useRef<HTMLDivElement>(null);
+  const initialFetchRef = useRef<boolean>(true);
 
   const hapticPulse = (pattern: number | number[] = 12) => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -145,6 +113,13 @@ export default function TablesPage() {
     localStorage.removeItem('auth.user');
     router.replace('/login');
   }, [router]);
+
+  const syncTablesToStore = useCallback(
+    (nextTables: Table[]) => {
+      setTablesInStore(nextTables);
+    },
+    [setTablesInStore]
+  );
 
   // Update clock every minute
   useEffect(() => {
@@ -200,11 +175,16 @@ export default function TablesPage() {
             : undefined,
         };
       });
-      setTables(normalized.length ? normalized : DEMO_TABLES);
-      syncTablesToStore(normalized.length ? normalized : DEMO_TABLES);
+      setTables(normalized);
+      syncTablesToStore(normalized);
     } catch {
-      setTables(DEMO_TABLES);
-      syncTablesToStore(DEMO_TABLES);
+      setTables([]);
+      syncTablesToStore([]);
+    } finally {
+      if (initialFetchRef.current) {
+         setLoading(false);
+         initialFetchRef.current = false;
+      }
     }
   }, [clearSessionAndRedirect, syncTablesToStore]);
 
@@ -449,6 +429,22 @@ export default function TablesPage() {
     .filter((t) => t.currentOrder)
     .reduce((sum, t) => sum + (t.currentOrder?.total || 0), 0);
 
+  const getElapsed = (createdAt: string) => {
+    const elapsedMinutes = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 60000));
+    if (elapsedMinutes < 60) {
+      return `${elapsedMinutes}m`;
+    }
+
+    const hours = Math.floor(elapsedMinutes / 60);
+    const minutes = elapsedMinutes % 60;
+    return `${hours}h ${minutes}m`;
+  };
+
+  const isLongWait = (createdAt: string) => {
+    const elapsedMinutes = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 60000));
+    return elapsedMinutes >= 30;
+  };
+
   return (
     <div className="pos-layout">
       <Sidebar activePath="/pos/tables" />
@@ -620,7 +616,12 @@ export default function TablesPage() {
           )}
 
           {/* Grid */}
-          {filtered.length > 0 && layoutMode === 'GRID' ? (
+          {loading && initialFetchRef.current ? (
+            <div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--on-surface-dim)' }}>
+              <img src="/placeholder-loading.svg" alt="Loading..." style={{ width: 48, height: 48, filter: 'grayscale(1)', opacity: 0.5, animation: 'spin 1s linear infinite', marginBottom: 12 }} />
+              <div>Loading Tables...</div>
+            </div>
+          ) : filtered.length > 0 && layoutMode === 'GRID' ? (
             <div className="table-grid">
               {filtered.map((table) => (
                 <div
@@ -837,3 +838,5 @@ export default function TablesPage() {
     </div>
   );
 }
+
+export default TablesPage;

@@ -38,6 +38,30 @@ export default function LoginPage() {
     }
   }, [hydrated, isAuthenticated, router, user?.role]);
 
+  useEffect(() => {
+    if (tab !== 'pin') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if (e.key >= '0' && e.key <= '9') {
+        setPin((current) => current.length >= 4 ? current : current + e.key);
+      } else if (e.key === 'Backspace') {
+        setPin((current) => current.slice(0, -1));
+      } else if (e.key === 'Enter') {
+        if (selectedStaff && pin.length >= 4) {
+          // Trigger confirm pin indirectly
+          const confirmBtn = document.querySelector('.pin-btn.confirm') as HTMLButtonElement | null;
+          if (confirmBtn) confirmBtn.click();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [tab, selectedStaff, pin]);
+
   const handlePasswordLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);

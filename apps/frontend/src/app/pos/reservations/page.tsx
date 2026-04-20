@@ -39,7 +39,7 @@ export default function ReservationsPage() {
   const fetchReservations = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth.token') || '';
+      const token = sessionStorage.getItem('auth.token') || '';
       // Try to fetch real orders that might act as reservations
       const res = await fetch(`${API_BASE}/orders`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,

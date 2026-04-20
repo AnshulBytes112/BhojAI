@@ -48,8 +48,8 @@ function readStorageSession() {
     return { user: null as AuthUser | null, token: null as string | null };
   }
 
-  const token = localStorage.getItem('auth.token');
-  const rawUser = localStorage.getItem('auth.user');
+  const token = sessionStorage.getItem('auth.token');
+  const rawUser = sessionStorage.getItem('auth.user');
 
   let user: AuthUser | null = null;
   if (rawUser) {
@@ -69,15 +69,15 @@ function writeStorageSession(user: AuthUser | null, token: string | null) {
   }
 
   if (token) {
-    localStorage.setItem('auth.token', token);
+    sessionStorage.setItem('auth.token', token);
   } else {
-    localStorage.removeItem('auth.token');
+    sessionStorage.removeItem('auth.token');
   }
 
   if (user) {
-    localStorage.setItem('auth.user', JSON.stringify(user));
+    sessionStorage.setItem('auth.user', JSON.stringify(user));
   } else {
-    localStorage.removeItem('auth.user');
+    sessionStorage.removeItem('auth.user');
   }
 }
 

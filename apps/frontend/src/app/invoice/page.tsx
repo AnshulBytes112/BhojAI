@@ -28,7 +28,7 @@ function InvoiceContent() {
       setItems(DEMO_ITEMS);
       return;
     }
-    const token = localStorage.getItem('auth.token') || '';
+    const token = sessionStorage.getItem('auth.token') || '';
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333/api';
     fetch(`${API_BASE}/orders/${orderId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,

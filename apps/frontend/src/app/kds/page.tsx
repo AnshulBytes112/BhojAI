@@ -87,8 +87,8 @@ export default function KDSPage() {
   }, []);
 
   const clearSessionAndRedirect = useCallback(() => {
-    localStorage.removeItem('auth.token');
-    localStorage.removeItem('auth.user');
+    sessionStorage.removeItem('auth.token');
+    sessionStorage.removeItem('auth.user');
     router.replace('/login');
   }, [router]);
 
@@ -144,7 +144,7 @@ export default function KDSPage() {
   const fetchKOTs = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       if (!token) {
         clearSessionAndRedirect();
         return;
@@ -275,7 +275,7 @@ export default function KDSPage() {
     setKots((prev) => prev.map((k) => (k.id === kot.id ? { ...k, status: nextStatus } : k)));
 
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       if (!token) {
         clearSessionAndRedirect();
         return;

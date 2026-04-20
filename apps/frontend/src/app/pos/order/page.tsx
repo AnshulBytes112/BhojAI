@@ -370,7 +370,7 @@ function OrderEntryContent() {
     }, 4200);
   }, []);
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth.token') || '' : '';
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem('auth.token') || '' : '';
 
   const callApi = useCallback(
     async (path: string, init?: RequestInit) => {
@@ -386,8 +386,8 @@ function OrderEntryContent() {
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         if (res.status === 401 && typeof window !== 'undefined') {
-          localStorage.removeItem('auth.token');
-          localStorage.removeItem('auth.user');
+          sessionStorage.removeItem('auth.token');
+          sessionStorage.removeItem('auth.user');
           if (window.location.pathname !== '/login') {
             window.location.assign('/login');
           }

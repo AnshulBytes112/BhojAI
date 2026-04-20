@@ -77,7 +77,7 @@ export default function BillsPage() {
   const fetchBills = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth.token') || '';
+      const token = sessionStorage.getItem('auth.token') || '';
       const res = await fetch(`${API}/bills`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });

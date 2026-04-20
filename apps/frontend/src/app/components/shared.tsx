@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStoredUser } from '../lib/api';
+import { getStoredUser, API_BASE } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
 import { canRoleAccessPath, getRoleHomePath, normalizeRole, type AppRole } from '../lib/roles';
+
+// ... I need to be careful with the lines here, so I'll just target the exact lines I want to change.
 
 export function IconFlame({ className = '' }: { className?: string }) {
   return (
@@ -267,16 +269,17 @@ const navItems: Array<{
   badge: number;
   roles: AppRole[];
 }> = [
-    { href: '/analytics', icon: IconChart, label: 'Dashboard', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/analytics', icon: IconChart, label: 'Dashboard', badge: 0, roles: ['ADMIN', 'MANAGER'] },
     { href: '/pos/order', icon: IconClipboard, label: 'POS', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
     { href: '/kds', icon: IconKitchen, label: 'Kitchen', badge: 0, roles: ['ADMIN', 'MANAGER', 'CHEF', 'WAITER'] },
+    { href: '/specials', icon: IconStar, label: 'Today\'s Special', badge: 0, roles: ['CHEF'] },
     { href: '/pos/tables', icon: IconGrid, label: 'Table', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
     { href: '/pos/reservations', icon: IconClock, label: 'Reservations', badge: 1, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-    { href: '/menu', icon: IconMenu, label: 'Offering', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-    { href: '/inventory', icon: IconInventory, label: 'Inventory', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/menu', icon: IconMenu, label: 'Offering', badge: 0, roles: ['ADMIN', 'MANAGER'] },
+    { href: '/inventory', icon: IconInventory, label: 'Inventory', badge: 0, roles: ['ADMIN', 'MANAGER'] },
     { href: '/pos/bills', icon: IconCash, label: 'Payments', badge: 14, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
     { href: '/invoice', icon: IconPrint, label: 'Invoice', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-    { href: '/user', icon: IconUsers, label: 'User', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/user', icon: IconUsers, label: 'User', badge: 0, roles: ['ADMIN', 'MANAGER'] },
   ];
 
 interface SidebarProps {
@@ -288,6 +291,7 @@ export function Sidebar({ activePath }: SidebarProps) {
   const [role, setRole] = useState<AppRole>('WAITER');
   const [userName, setUserName] = useState('Admin User');
   const [roleReady, setRoleReady] = useState(false);
+  const [pendingKots, setPendingKots] = useState(0);
 
   useEffect(() => {
     const user = getStoredUser();
@@ -303,12 +307,44 @@ export function Sidebar({ activePath }: SidebarProps) {
     }
   }, [activePath, role, roleReady, router]);
 
-  const visibleNavItems = navItems.filter((item) => item.roles.includes(role));
+  useEffect(() => {
+    if (!roleReady) return;
+
+    const fetchPendingOrders = async () => {
+      try {
+        const token = sessionStorage.getItem('auth.token');
+        if (!token) return;
+        const res = await fetch(`${API_BASE}/orders?status=PENDING`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Orders endpoint returns all orders for the restaurant.
+          // In BhojAI, an order goes to KITCHEN when created, and its status is PENDING.
+          // Wait, the KDS page groups them by table/order, so the length of pending orders is close enough for a badge notification.
+          setPendingKots(data.length);
+        }
+      } catch (e) {
+        // silently fail on polling error
+      }
+    };
+
+    fetchPendingOrders();
+    const interval = setInterval(fetchPendingOrders, 5000); // 5s to match KDS real-time feel
+    return () => clearInterval(interval);
+  }, [roleReady]);
+
+  const visibleNavItems = navItems.filter((item) => item.roles.includes(role)).map(item => {
+    if (item.label === 'Kitchen') {
+      return { ...item, badge: pendingKots };
+    }
+    return item;
+  });
   const canOpenSettings = role === 'ADMIN' || role === 'MANAGER';
 
   const handleExit = () => {
-    localStorage.removeItem('auth.token');
-    localStorage.removeItem('auth.user');
+    sessionStorage.removeItem('auth.token');
+    sessionStorage.removeItem('auth.user');
     router.push('/login');
   };
 
@@ -438,7 +474,7 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
   const roleBadge = ROLE_BADGE_META[role];
 
   useEffect(() => {
-    const rawUser = localStorage.getItem('auth.user');
+    const rawUser = sessionStorage.getItem('auth.user');
 
     if (rawUser) {
       try {
@@ -543,16 +579,13 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
               <div className="topbar-profile-role">{role}</div>
             </div>
             <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid var(--outline-variant)' }} />
-            <button
+            <div
               className="topbar-profile-item"
-              onClick={() => {
-                router.push('/settings');
-                setShowProfileMenu(false);
-              }}
+              style={{ color: 'var(--on-surface-dim)', cursor: 'not-allowed', display: 'flex', alignItems: 'center', gap: '8px' }}
             >
-              <IconCog />
-              Settings
-            </button>
+              <IconUser />
+              Profile (Coming soon)
+            </div>
             <button
               className="topbar-profile-item logout"
               onClick={() => {

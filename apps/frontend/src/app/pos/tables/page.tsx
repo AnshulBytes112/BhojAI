@@ -141,8 +141,8 @@ export default function TablesPage() {
   };
 
   const clearSessionAndRedirect = useCallback(() => {
-    localStorage.removeItem('auth.token');
-    localStorage.removeItem('auth.user');
+    sessionStorage.removeItem('auth.token');
+    sessionStorage.removeItem('auth.user');
     router.replace('/login');
   }, [router]);
 
@@ -155,7 +155,7 @@ export default function TablesPage() {
   // Fetch tables from API
   const fetchTables = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       if (!token) {
         clearSessionAndRedirect();
         return;
@@ -302,7 +302,7 @@ export default function TablesPage() {
 
     setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, posX, posY, area } : t)));
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       await fetch(`${API}/tables/${tableId}`, {
         method: 'PATCH',
         headers: {
@@ -337,7 +337,7 @@ export default function TablesPage() {
     if (!canManageTables || !tableForm.number.trim()) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       const res = await fetch(`${API}/tables`, {
         method: 'POST',
         headers: {
@@ -369,7 +369,7 @@ export default function TablesPage() {
     if (!selectedTable || !canManageTables) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       const [metaRes, statusRes] = await Promise.all([
         fetch(`${API}/tables/${selectedTable.id}`, {
           method: 'PATCH',
@@ -418,7 +418,7 @@ export default function TablesPage() {
     if (!selectedTable || !canDeleteTables) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       const res = await fetch(`${API}/tables/${selectedTable.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },

@@ -1,74 +1,103 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import {
   Sidebar,
   TopBar,
   ToastContainer,
   IconPlus,
+  IconTag,
   IconX,
   type ToastItem,
 } from '../components/shared';
-import { API_BASE, apiRequest, formatCurrency, formatNumber, getStoredUser } from '../lib/api';
+import { apiRequest, formatCurrency } from '../lib/api';
 
-interface InventoryItem {
+interface ModifierOption {
   id: string;
   name: string;
-  sku?: string | null;
-  quantity: number;
-  unit: string;
-  minThreshold: number | null;
-  costPrice: number | null;
-  updatedAt?: string;
+  price: number;
 }
 
-interface InventoryListResponse {
-  items: InventoryItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+interface ModifierGroup {
+  id: string;
+  name: string;
+  options: ModifierOption[];
 }
 
-const FALLBACK_ITEMS: InventoryItem[] = [
-  { id: 's1', name: 'Paneer Blocks', sku: 'DAI-101', quantity: 4, unit: 'kg', minThreshold: 10, costPrice: 340, updatedAt: new Date().toISOString() },
-  { id: 's2', name: 'Basmati Rice', sku: 'RIC-204', quantity: 12, unit: 'kg', minThreshold: 18, costPrice: 110, updatedAt: new Date().toISOString() },
-  { id: 's3', name: 'Fresh Cream', sku: 'DAI-118', quantity: 16, unit: 'ltr', minThreshold: 8, costPrice: 92, updatedAt: new Date().toISOString() },
-  { id: 's4', name: 'Kulfi Cups', sku: 'DES-301', quantity: 16, unit: 'pcs', minThreshold: 20, costPrice: 28, updatedAt: new Date().toISOString() },
-  { id: 's5', name: 'Tandoori Roti Flour', sku: 'FLO-020', quantity: 32, unit: 'kg', minThreshold: 12, costPrice: 46, updatedAt: new Date().toISOString() },
+interface MenuItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number;
+  imageUrl?: string | null;
+  isAvailable: boolean;
+  dietaryLabel?: string | null;
+  aiTags?: string | null;
+  categoryId: string;
+  modifierGroups?: ModifierGroup[];
+}
+
+interface MenuCategory {
+  id: string;
+  name: string;
+  sortOrder?: number;
+  items: MenuItem[];
+}
+
+const FALLBACK_CATEGORIES: MenuCategory[] = [
+  {
+    id: 'c1',
+    name: 'Starters',
+    items: [
+      { id: 'm1', name: 'Paneer Tikka', price: 280, isAvailable: true, dietaryLabel: 'VEG', aiTags: 'popular,starter', categoryId: 'c1' },
+      { id: 'm2', name: 'Chicken 65', price: 320, isAvailable: true, dietaryLabel: 'NON_VEG', aiTags: 'bestseller,spicy', categoryId: 'c1' },
+      { id: 'm3', name: 'Veg Spring Roll', price: 190, isAvailable: false, dietaryLabel: 'VEG', categoryId: 'c1' },
+    ],
+  },
+  {
+    id: 'c2',
+    name: 'Mains',
+    items: [
+      { id: 'm4', name: 'Butter Chicken', price: 390, isAvailable: true, dietaryLabel: 'NON_VEG', aiTags: 'signature,bestseller', categoryId: 'c2' },
+      { id: 'm5', name: 'Dal Makhani', price: 285, isAvailable: true, dietaryLabel: 'VEG', categoryId: 'c2' },
+      { id: 'm6', name: 'Paneer Makhani', price: 340, isAvailable: true, dietaryLabel: 'VEG', categoryId: 'c2' },
+    ],
+  },
+  {
+    id: 'c3',
+    name: 'Beverages',
+    items: [
+      { id: 'm7', name: 'Mango Lassi', price: 120, isAvailable: true, dietaryLabel: 'VEG', aiTags: 'upsell,popular', categoryId: 'c3' },
+      { id: 'm8', name: 'Cold Coffee', price: 130, isAvailable: true, dietaryLabel: 'VEG', categoryId: 'c3' },
+    ],
+  },
 ];
 
-const EMPTY_STOCK_FORM = {
+const EMPTY_ITEM_FORM = {
   name: '',
-  sku: '',
-  quantity: '',
-  unit: 'kg',
-  minThreshold: '',
-  costPrice: '',
+  description: '',
+  price: '',
+  imageUrl: '',
+  categoryId: '',
+  dietaryLabel: 'VEG',
+  aiTags: '',
 };
 
 export default function InventoryPage() {
-  const [items, setItems] = useState<InventoryItem[]>(FALLBACK_ITEMS);
+  return <InventoryPageContent />;
+}
+
+function InventoryPageContent() {
+  const [categories, setCategories] = useState<MenuCategory[]>(FALLBACK_CATEGORIES);
+  const [activeCategory, setActiveCategory] = useState('ALL');
   const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [lowStockOnly, setLowStockOnly] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(10);
-  const [totalItems, setTotalItems] = useState(FALLBACK_ITEMS.length);
-  const [totalPages, setTotalPages] = useState(1);
-  const [lowStockTotal, setLowStockTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showAdjustModal, setShowAdjustModal] = useState(false);
-  const [stockForm, setStockForm] = useState(EMPTY_STOCK_FORM);
-  const [editForm, setEditForm] = useState(EMPTY_STOCK_FORM);
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [adjustment, setAdjustment] = useState('');
-  const [reason, setReason] = useState('');
+  const [availability, setAvailability] = useState<'ALL' | 'AVAILABLE' | 'UNAVAILABLE'>('ALL');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showItemModal, setShowItemModal] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
+  const [itemForm, setItemForm] = useState(EMPTY_ITEM_FORM);
   const [saving, setSaving] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const [role, setRole] = useState('WAITER');
 
   const addToast = (toast: Omit<ToastItem, 'id'>) => {
     const id = Date.now().toString();
@@ -76,245 +105,184 @@ export default function InventoryPage() {
     setTimeout(() => setToasts((prev) => prev.filter((item) => item.id !== id)), 4500);
   };
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
-    return () => window.clearTimeout(timer);
-  }, [search]);
-
-  const loadLowStockCount = async () => {
+  const loadMenu = async () => {
     try {
-      const data = await apiRequest<InventoryListResponse | InventoryItem[]>('/inventory?lowStock=true&page=1&pageSize=1');
-      if (Array.isArray(data)) {
-        setLowStockTotal(data.length);
-      } else {
-        setLowStockTotal(Number(data.total || 0));
-      }
-    } catch {
-      setLowStockTotal(items.filter((item) => item.minThreshold !== null && item.quantity <= item.minThreshold).length);
-    }
-  };
+      const [categoriesData, itemsData] = await Promise.all([
+        apiRequest<MenuCategory[]>('/menu/categories'),
+        apiRequest<MenuItem[]>('/menu/items'),
+      ]);
 
-  const loadInventory = async () => {
-    setLoading(true);
-    try {
-      const qs = new URLSearchParams();
-      qs.set('page', String(page));
-      qs.set('pageSize', String(pageSize));
-      if (lowStockOnly) qs.set('lowStock', 'true');
-      if (debouncedSearch) qs.set('search', debouncedSearch);
+      if (categoriesData.length) {
+        const itemsByCategory = new Map<string, MenuItem[]>();
 
-      const data = await apiRequest<InventoryListResponse | InventoryItem[]>(`/inventory?${qs.toString()}`);
-
-      if (Array.isArray(data)) {
-        setItems(data.length ? data : FALLBACK_ITEMS);
-        setTotalItems(data.length);
-        setTotalPages(1);
-      } else {
-        setItems(Array.isArray(data.items) ? data.items : []);
-        setTotalItems(Number(data.total || 0));
-        setTotalPages(Math.max(1, Number(data.totalPages || 1)));
-        if (page !== Number(data.page || 1)) {
-          setPage(Number(data.page || 1));
+        for (const item of itemsData || []) {
+          const bucket = itemsByCategory.get(item.categoryId) || [];
+          bucket.push(item);
+          itemsByCategory.set(item.categoryId, bucket);
         }
+
+        const normalized = categoriesData.map((category) => ({
+          ...category,
+          items: itemsByCategory.get(category.id) || category.items || [],
+        }));
+
+        setCategories(normalized);
+        return;
       }
-    } catch {
-      setItems(FALLBACK_ITEMS);
-      setTotalItems(FALLBACK_ITEMS.length);
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
+    } catch (_error) {
+      setCategories(FALLBACK_CATEGORIES);
+      return;
     }
+
+    setCategories(FALLBACK_CATEGORIES);
   };
 
   useEffect(() => {
-    const user = getStoredUser();
-    setRole((user?.role || 'WAITER').toUpperCase());
-    void loadLowStockCount();
+    loadMenu();
   }, []);
 
   useEffect(() => {
-    setPage(1);
-  }, [lowStockOnly, debouncedSearch]);
+    if (activeCategory === 'ALL' && categories.length) {
+      setItemForm((prev) => ({ ...prev, categoryId: categories[0].id }));
+      return;
+    }
 
-  useEffect(() => {
-    void loadInventory();
-  }, [lowStockOnly, debouncedSearch, page, pageSize]);
+    if (activeCategory !== 'ALL') {
+      setItemForm((prev) => ({ ...prev, categoryId: activeCategory }));
+    }
+  }, [activeCategory, categories]);
 
-  const canManageInventory = role === 'ADMIN' || role === 'MANAGER';
-  const canDeleteInventory = role === 'ADMIN';
+  const allItems = categories.flatMap((category) => category.items.map((item) => ({ ...item, categoryName: category.name })));
+  const filteredItems = allItems.filter((item) => {
+    const matchesCategory = activeCategory === 'ALL' || item.categoryId === activeCategory;
+    const matchesAvailability =
+      availability === 'ALL' ||
+      (availability === 'AVAILABLE' ? item.isAvailable : !item.isAvailable);
+    const matchesSearch =
+      !search ||
+      item.name.toLowerCase().includes(search.toLowerCase()) ||
+      item.aiTags?.toLowerCase().includes(search.toLowerCase()) ||
+      item.description?.toLowerCase().includes(search.toLowerCase());
+    return matchesCategory && matchesAvailability && matchesSearch;
+  });
 
-  const lowStockCount = lowStockOnly
-    ? totalItems
-    : lowStockTotal;
-  const inventoryValue = items.reduce((sum, item) => sum + item.quantity * (item.costPrice || 0), 0);
-  const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
+  const availableCount = allItems.filter((item) => item.isAvailable).length;
+  const unavailableCount = allItems.length - availableCount;
 
-  const exportCsv = async () => {
+  const handleToggleAvailability = async (item: MenuItem) => {
+    const previous = categories;
+    setCategories((current) =>
+      current.map((category) => ({
+        ...category,
+        items: category.items.map((entry) => (entry.id === item.id ? { ...entry, isAvailable: !entry.isAvailable } : entry)),
+      }))
+    );
+
     try {
-      const token = localStorage.getItem('auth.token') || '';
-      const qs = new URLSearchParams();
-      if (lowStockOnly) qs.set('lowStock', 'true');
-      if (debouncedSearch) qs.set('search', debouncedSearch);
-      const url = `${API_BASE}/inventory/export.csv${qs.toString() ? `?${qs.toString()}` : ''}`;
-      const res = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      await apiRequest(`/menu/items/${item.id}/toggle`, { method: 'PATCH' });
+      addToast({
+        icon: 'i',
+        title: `${item.name} updated`,
+        message: item.isAvailable ? 'Marked unavailable for the live order flow.' : 'Returned to the active menu.',
       });
-      if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        throw new Error(payload?.error || 'Failed to export CSV');
-      }
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(objectUrl);
-      addToast({ icon: '📤', title: 'CSV exported', message: `Exported ${totalItems} inventory rows.` });
-    } catch (error) {
-      addToast({ icon: '❌', title: 'Export failed', message: (error as Error).message });
+    } catch {
+      setCategories(previous);
+      addToast({
+        icon: '!',
+        title: 'Availability change failed',
+        message: 'The backend could not confirm this toggle. Your previous state was restored.',
+      });
+    }
+  };
+
+  const handleCreateCategory = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!categoryName.trim()) return;
+    setSaving(true);
+
+    try {
+      await apiRequest('/menu/categories', {
+        method: 'POST',
+        body: { name: categoryName.trim(), sortOrder: categories.length + 1 },
+      });
+      await loadMenu();
+      setCategoryName('');
+      setShowCategoryModal(false);
+      addToast({ icon: '+', title: 'Category created', message: 'The new section is ready for menu items.' });
+    } catch {
+      const fallbackCategory: MenuCategory = {
+        id: `demo-category-${Date.now()}`,
+        name: categoryName.trim(),
+        items: [],
+      };
+      setCategories((prev) => [...prev, fallbackCategory]);
+      setCategoryName('');
+      setShowCategoryModal(false);
+      addToast({ icon: 'i', title: 'Preview category added', message: 'Saved locally because the backend was unavailable.' });
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleCreateItem = async (event: FormEvent) => {
     event.preventDefault();
-    if (!stockForm.name.trim() || !stockForm.quantity || !stockForm.unit) return;
+    if (!itemForm.name.trim() || !itemForm.price || !itemForm.categoryId) return;
     setSaving(true);
 
     const payload = {
-      name: stockForm.name.trim(),
-      sku: stockForm.sku.trim() || undefined,
-      quantity: Number(stockForm.quantity),
-      unit: stockForm.unit,
-      minThreshold: stockForm.minThreshold ? Number(stockForm.minThreshold) : undefined,
-      costPrice: stockForm.costPrice ? Number(stockForm.costPrice) : undefined,
+      name: itemForm.name.trim(),
+      description: itemForm.description.trim() || undefined,
+      price: Number(itemForm.price),
+      imageUrl: itemForm.imageUrl || undefined,
+      categoryId: itemForm.categoryId,
+      dietaryLabel: itemForm.dietaryLabel,
+      aiTags: itemForm.aiTags.trim() || undefined,
     };
 
     try {
-      await apiRequest('/inventory', { method: 'POST', body: payload });
-      await loadInventory();
-      await loadLowStockCount();
-      addToast({ icon: '+', title: 'Stock item created', message: 'The SKU has been added to the inventory ledger.' });
-    } catch {
-      setItems((prev) => [
-        ...prev,
-        {
-          id: `local-${Date.now()}`,
-          ...payload,
-          minThreshold: payload.minThreshold ?? null,
-          costPrice: payload.costPrice ?? null,
-        },
-      ]);
-      addToast({ icon: 'i', title: 'Preview item added', message: 'Saved locally because the backend could not be reached.' });
-    } finally {
-      setStockForm(EMPTY_STOCK_FORM);
-      setShowCreateModal(false);
-      setSaving(false);
-    }
-  };
-
-  const openAdjustModal = (item: InventoryItem) => {
-    if (!canManageInventory) {
-      addToast({ icon: '⚠️', title: 'Manager/Admin only', message: 'You do not have access to stock adjustments.' });
-      return;
-    }
-    setSelectedItem(item);
-    setAdjustment('');
-    setReason('');
-    setShowAdjustModal(true);
-  };
-
-  const openEditModal = (item: InventoryItem) => {
-    if (!canManageInventory) {
-      addToast({ icon: '⚠️', title: 'Manager/Admin only', message: 'You do not have access to update stock items.' });
-      return;
-    }
-    setSelectedItem(item);
-    setEditForm({
-      name: item.name,
-      sku: item.sku || '',
-      quantity: String(item.quantity),
-      unit: item.unit,
-      minThreshold: item.minThreshold === null ? '' : String(item.minThreshold),
-      costPrice: item.costPrice === null ? '' : String(item.costPrice),
-    });
-    setShowEditModal(true);
-  };
-
-  const handleUpdateItem = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedItem || !canManageInventory) return;
-    setSaving(true);
-    const payload = {
-      name: editForm.name.trim(),
-      sku: editForm.sku.trim() || undefined,
-      quantity: Number(editForm.quantity),
-      unit: editForm.unit,
-      minThreshold: editForm.minThreshold ? Number(editForm.minThreshold) : null,
-      costPrice: editForm.costPrice ? Number(editForm.costPrice) : null,
-    };
-    try {
-      await apiRequest(`/inventory/${selectedItem.id}`, { method: 'PATCH', body: payload });
-      await loadInventory();
-      await loadLowStockCount();
-      addToast({ icon: '✅', title: 'Stock item updated', message: `${payload.name} updated successfully.` });
-      setShowEditModal(false);
-      setSelectedItem(null);
+      await apiRequest('/menu/items', { method: 'POST', body: payload });
+      await loadMenu();
+      setItemForm(EMPTY_ITEM_FORM);
+      setShowItemModal(false);
+      addToast({ icon: '+', title: 'Menu item created', message: 'The item is now available to the POS flow.' });
     } catch (error) {
-      addToast({ icon: '❌', title: 'Update failed', message: (error as Error).message });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteItem = async () => {
-    if (!selectedItem || !canDeleteInventory) return;
-    setSaving(true);
-    try {
-      await apiRequest(`/inventory/${selectedItem.id}`, { method: 'DELETE' });
-      await loadInventory();
-      await loadLowStockCount();
-      addToast({ icon: '🗑️', title: 'Stock item removed', message: `${selectedItem.name} deleted.` });
-      setShowEditModal(false);
-      setSelectedItem(null);
-    } catch (error) {
-      addToast({ icon: '❌', title: 'Delete failed', message: (error as Error).message });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAdjustStock = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedItem || !adjustment) return;
-    setSaving(true);
-
-    const adjustmentValue = Number(adjustment);
-
-    try {
-      await apiRequest(`/inventory/${selectedItem.id}/adjust`, {
-        method: 'PATCH',
-        body: { adjustment: adjustmentValue, reason: reason || 'Manual adjustment' },
+      addToast({
+        icon: '!',
+        title: 'Create failed',
+        message: (error as Error).message || 'Could not save item to server, so it was not added to POS order flow.',
       });
-      await loadInventory();
-      await loadLowStockCount();
-      addToast({ icon: 'i', title: 'Stock adjusted', message: `${selectedItem.name} updated successfully.` });
-    } catch {
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === selectedItem.id ? { ...item, quantity: item.quantity + adjustmentValue } : item
-        )
-      );
-      addToast({ icon: 'i', title: 'Preview adjustment applied', message: 'Updated locally because the backend could not be reached.' });
     } finally {
       setSaving(false);
-      setShowAdjustModal(false);
-      setSelectedItem(null);
-      setAdjustment('');
-      setReason('');
     }
+  };
+
+  const handleItemImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setItemForm((prev) => ({ ...prev, imageUrl: '' }));
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      addToast({ icon: '!', title: 'Invalid file', message: 'Please select an image file.' });
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 1024 * 1024) {
+      addToast({ icon: '!', title: 'Image too large', message: 'Please use an image under 1MB.' });
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setItemForm((prev) => ({ ...prev, imageUrl: String(reader.result || '') }));
+    };
+    reader.onerror = () => {
+      addToast({ icon: '!', title: 'Upload failed', message: 'Could not read the selected image.' });
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -323,33 +291,18 @@ export default function InventoryPage() {
 
       <div className="pos-main">
         <TopBar
-          title="Inventory Control"
-          subtitle="Track par levels, cost exposure and real-time replenishment pressure"
+          title="Inventory Studio"
+          subtitle="Catalog control for categories, availability and AI merchandising tags"
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search SKU or ingredient..."
+          searchPlaceholder="Search items or tags..."
           actions={
             <div className="flex gap-2">
-              <button className={`chip ${lowStockOnly ? 'active' : ''}`} onClick={() => setLowStockOnly((prev) => !prev)}>
-                Low Stock Alert
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowCategoryModal(true)}>
+                <IconTag /> New Category
               </button>
-              <button className="btn btn-secondary btn-sm" onClick={() => void loadInventory()}>
-                {loading ? 'Refreshing...' : 'Refresh'}
-              </button>
-              <button className="btn btn-secondary btn-sm" onClick={() => void exportCsv()}>
-                Export CSV
-              </button>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => {
-                  if (!canManageInventory) {
-                    addToast({ icon: '⚠️', title: 'Manager/Admin only', message: 'Only managers can add inventory items.' });
-                    return;
-                  }
-                  setShowCreateModal(true);
-                }}
-              >
-                <IconPlus /> New SKU
+              <button className="btn btn-primary btn-sm" onClick={() => setShowItemModal(true)}>
+                <IconPlus /> New Item
               </button>
             </div>
           }
@@ -358,88 +311,101 @@ export default function InventoryPage() {
         <div className="admin-shell">
           <div className="kpi-grid">
             <div className="kpi-card orange">
-              <div className="kpi-value">{items.length}</div>
-              <div className="kpi-label">Tracked SKUs</div>
-            </div>
-            <div className="kpi-card yellow">
-              <div className="kpi-value">{lowStockCount}</div>
-              <div className="kpi-label">Low Stock Alerts</div>
-            </div>
-            <div className="kpi-card blue">
-              <div className="kpi-value">{formatNumber(totalUnits)}</div>
-              <div className="kpi-label">Units On Hand</div>
+              <div className="kpi-value">{allItems.length}</div>
+              <div className="kpi-label">Catalog Items</div>
             </div>
             <div className="kpi-card green">
-              <div className="kpi-value">{formatCurrency(inventoryValue)}</div>
-              <div className="kpi-label">Inventory Value</div>
+              <div className="kpi-value">{availableCount}</div>
+              <div className="kpi-label">Orderable Now</div>
+            </div>
+            <div className="kpi-card yellow">
+              <div className="kpi-value">{unavailableCount}</div>
+              <div className="kpi-label">Paused Items</div>
+            </div>
+            <div className="kpi-card blue">
+              <div className="kpi-value">{categories.length}</div>
+              <div className="kpi-label">Categories</div>
             </div>
           </div>
 
-          <div className="admin-grid-2">
+          <div className="admin-grid-2 wide-left">
             <div className="admin-card">
               <div className="section-header">
                 <div>
-                  <div className="section-title">Stock Ledger</div>
-                  <div className="section-subtitle">Server-paginated inventory with quick adjust and update tools</div>
+                  <div className="section-title">Item Catalog</div>
+                  <div className="section-subtitle">Quick toggle availability and monitor AI-ready merchandising tags</div>
                 </div>
-                <div className="badge badge-info">{items.length} shown · {totalItems} total</div>
+                <div className="filter-tabs">
+                  {(['ALL', 'AVAILABLE', 'UNAVAILABLE'] as const).map((option) => (
+                    <button
+                      key={option}
+                      className={`chip ${availability === option ? 'active' : ''}`}
+                      onClick={() => setAvailability(option)}
+                    >
+                      {option === 'ALL' ? 'All' : option === 'AVAILABLE' ? 'Available' : 'Unavailable'}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="data-table">
-                <div className="data-table-head inventory">
-                  <span>Ingredient</span>
-                  <span>On Hand</span>
-                  <span>Value</span>
-                  <span>Action</span>
-                </div>
-
-                {items.map((item) => {
-                  const health = item.minThreshold ? Math.min((item.quantity / item.minThreshold) * 100, 100) : 100;
-                  const low = item.minThreshold !== null && item.quantity <= item.minThreshold;
-
-                  return (
-                    <div key={item.id} className="inventory-row">
+              <div className="catalog-grid">
+                {filteredItems.map((item) => (
+                  <div key={item.id} className="catalog-card">
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        style={{ width: '100%', height: 132, objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: 10, border: '1px solid var(--outline-variant)' }}
+                      />
+                    ) : null}
+                    <div className="catalog-card-header">
                       <div>
                         <div className="table-primary">{item.name}</div>
-                        <div className="table-secondary">{item.sku || 'No SKU'} · {item.unit}</div>
-                        <div className="bar-track">
-                          <div className={`bar-fill ${low ? 'tone-2' : 'tone-1'}`} style={{ width: `${Math.max(10, health)}%` }} />
-                        </div>
+                        <div className="table-secondary">{item.categoryName}</div>
                       </div>
-                      <div className="table-primary">
-                        {item.quantity} {item.unit}
-                        {low && <div className="table-secondary text-danger">Below threshold</div>}
+                      <span className={`badge ${item.isAvailable ? 'badge-success' : 'badge-danger'}`}>
+                        {item.isAvailable ? 'Available' : 'Unavailable'}
+                      </span>
+                    </div>
+
+                    <div className="catalog-card-body">
+                      <div className="metric-row compact">
+                        <span className="metric-label">Price</span>
+                        <span className="metric-value">{formatCurrency(item.price)}</span>
                       </div>
-                      <div className="table-primary">{formatCurrency(item.quantity * (item.costPrice || 0))}</div>
-                      <div className="inventory-actions">
-                        <button className="btn btn-secondary btn-sm" onClick={() => openAdjustModal(item)}>
-                          Adjust
-                        </button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEditModal(item)}>
-                          Edit
-                        </button>
+                      <div className="metric-row compact">
+                        <span className="metric-label">Dietary</span>
+                        <span className="metric-caption">{item.dietaryLabel || 'Not tagged'}</span>
+                      </div>
+                      <div className="catalog-tags">
+                        {(item.aiTags || 'no-tags')
+                          .split(',')
+                          .filter(Boolean)
+                          .map((tag) => (
+                            <span key={tag} className="badge badge-neutral">
+                              {tag.trim()}
+                            </span>
+                          ))}
                       </div>
                     </div>
-                  );
-                })}
 
-                {items.length === 0 && (
-                  <div style={{ color: 'var(--on-surface-dim)', fontSize: 13, padding: '10px 2px' }}>
-                    No inventory items found for the current filter.
+                    <div className="catalog-card-actions">
+                      <button className="btn btn-secondary btn-sm" onClick={() => handleToggleAvailability(item)}>
+                        {item.isAvailable ? 'Pause Item' : 'Enable Item'}
+                      </button>
+                      <div className="table-secondary">
+                        {item.modifierGroups?.length || 0} modifier groups
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {filteredItems.length === 0 && (
+                  <div className="empty-state">
+                    <div className="section-title">No items matched this filter</div>
+                    <div className="section-subtitle">Try a broader search, or switch to another category.</div>
                   </div>
                 )}
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-                <button className="btn btn-ghost btn-sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                  Previous
-                </button>
-                <div style={{ fontSize: 12, color: 'var(--on-surface-dim)' }}>
-                  Page {page} of {totalPages}
-                </div>
-                <button className="btn btn-ghost btn-sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                  Next
-                </button>
               </div>
             </div>
 
@@ -447,50 +413,47 @@ export default function InventoryPage() {
               <div className="admin-card">
                 <div className="section-header">
                   <div>
-                    <div className="section-title">Replenishment Queue</div>
-                    <div className="section-subtitle">Items closest to affecting service continuity</div>
+                    <div className="section-title">Category Rail</div>
+                    <div className="section-subtitle">Use this to focus a service station or meal period quickly</div>
                   </div>
                 </div>
-                <div className="metric-list">
-                  {items
-                    .filter((item) => item.minThreshold !== null)
-                    .sort((a, b) => (a.quantity - (a.minThreshold || 0)) - (b.quantity - (b.minThreshold || 0)))
-                    .slice(0, 4)
-                    .map((item) => (
-                      <div key={item.id} className="metric-row compact">
-                        <div>
-                          <div className="metric-label">{item.name}</div>
-                          <div className="metric-caption">
-                            Threshold {item.minThreshold} {item.unit}
-                          </div>
-                        </div>
-                        <div className={item.minThreshold !== null && item.quantity <= item.minThreshold ? 'text-danger' : ''}>
-                          {item.quantity} {item.unit}
-                        </div>
-                      </div>
-                    ))}
+                <div className="sidebar-list">
+                  <button className={`sidebar-list-item ${activeCategory === 'ALL' ? 'active' : ''}`} onClick={() => setActiveCategory('ALL')}>
+                    <span>All Categories</span>
+                    <span>{allItems.length}</span>
+                  </button>
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      className={`sidebar-list-item ${activeCategory === category.id ? 'active' : ''}`}
+                      onClick={() => setActiveCategory(category.id)}
+                    >
+                      <span>{category.name}</span>
+                      <span>{category.items.length}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
               <div className="admin-card">
                 <div className="section-header">
                   <div>
-                    <div className="section-title">Warehouse Notes</div>
-                    <div className="section-subtitle">Small process upgrades that reduce rush-hour surprises</div>
+                    <div className="section-title">Editor Notes</div>
+                    <div className="section-subtitle">Suggested guardrails for a polished live menu</div>
                   </div>
                 </div>
                 <div className="metric-list">
                   <div className="metric-row compact">
-                    <div className="metric-label">Use threshold bands</div>
-                    <div className="metric-caption">Set realistic par levels for high-turn items like rice, paneer and naan dough.</div>
+                    <div className="metric-label">Keep AI tags actionable</div>
+                    <div className="metric-caption">Use tags like `bestseller`, `combo`, `upsell`, `spicy`.</div>
                   </div>
                   <div className="metric-row compact">
-                    <div className="metric-label">Adjust with reasons</div>
-                    <div className="metric-caption">Restock, wastage and variance tags make audit trails easier later.</div>
+                    <div className="metric-label">Limit unavailable clutter</div>
+                    <div className="metric-caption">Pause items temporarily rather than deleting them during service.</div>
                   </div>
                   <div className="metric-row compact">
-                    <div className="metric-label">Review cost spikes weekly</div>
-                    <div className="metric-caption">Rising ingredient cost usually shows up here before it shows up in margin reports.</div>
+                    <div className="metric-label">Use clear dietary labels</div>
+                    <div className="metric-caption">They drive faster selection on touch-first order entry screens.</div>
                   </div>
                 </div>
               </div>
@@ -498,109 +461,113 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {showCreateModal && (
-          <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+        {showCategoryModal && (
+          <div className="modal-overlay" onClick={() => setShowCategoryModal(false)}>
             <div className="modal" onClick={(event) => event.stopPropagation()}>
               <div className="modal-header">
-                <h2 className="modal-title">Create Stock Item</h2>
-                <button className="btn btn-ghost btn-icon" onClick={() => setShowCreateModal(false)}>
+                <h2 className="modal-title">Create Category</h2>
+                <button className="btn btn-ghost btn-icon" onClick={() => setShowCategoryModal(false)}>
+                  <IconX />
+                </button>
+              </div>
+              <form className="input-group" onSubmit={handleCreateCategory}>
+                <label className="input-label">Category Name</label>
+                <input className="input-field" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} placeholder="Example: Tandoor Specials" />
+                <button className="btn btn-primary btn-full" type="submit" disabled={saving}>
+                  {saving ? 'Saving...' : 'Create Category'}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {showItemModal && (
+          <div className="modal-overlay" onClick={() => setShowItemModal(false)}>
+            <div className="modal" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">Create Menu Item</h2>
+                <button className="btn btn-ghost btn-icon" onClick={() => setShowItemModal(false)}>
                   <IconX />
                 </button>
               </div>
               <form className="modal-form-grid" onSubmit={handleCreateItem}>
                 <div className="input-group">
                   <label className="input-label">Item Name</label>
-                  <input className="input-field" value={stockForm.name} onChange={(event) => setStockForm((prev) => ({ ...prev, name: event.target.value }))} />
+                  <input className="input-field" value={itemForm.name} onChange={(event) => setItemForm((prev) => ({ ...prev, name: event.target.value }))} />
                 </div>
                 <div className="input-group">
-                  <label className="input-label">SKU</label>
-                  <input className="input-field" value={stockForm.sku} onChange={(event) => setStockForm((prev) => ({ ...prev, sku: event.target.value }))} />
+                  <label className="input-label">Category</label>
+                  <select
+                    className="input-field"
+                    value={itemForm.categoryId}
+                    onChange={(event) => setItemForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+                  >
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="input-group">
-                  <label className="input-label">Quantity</label>
-                  <input className="input-field" type="number" min="0" value={stockForm.quantity} onChange={(event) => setStockForm((prev) => ({ ...prev, quantity: event.target.value }))} />
+                  <label className="input-label">Price</label>
+                  <input
+                    className="input-field"
+                    type="number"
+                    min="0"
+                    value={itemForm.price}
+                    onChange={(event) => setItemForm((prev) => ({ ...prev, price: event.target.value }))}
+                  />
                 </div>
                 <div className="input-group">
-                  <label className="input-label">Unit</label>
-                  <input className="input-field" value={stockForm.unit} onChange={(event) => setStockForm((prev) => ({ ...prev, unit: event.target.value }))} />
+                  <label className="input-label">Dietary Label</label>
+                  <select
+                    className="input-field"
+                    value={itemForm.dietaryLabel}
+                    onChange={(event) => setItemForm((prev) => ({ ...prev, dietaryLabel: event.target.value }))}
+                  >
+                    <option value="VEG">VEG</option>
+                    <option value="NON_VEG">NON_VEG</option>
+                    <option value="EGG">EGG</option>
+                    <option value="VEGAN">VEGAN</option>
+                  </select>
                 </div>
-                <div className="input-group">
-                  <label className="input-label">Min Threshold</label>
-                  <input className="input-field" type="number" min="0" value={stockForm.minThreshold} onChange={(event) => setStockForm((prev) => ({ ...prev, minThreshold: event.target.value }))} />
+                <div className="input-group span-2">
+                  <label className="input-label">Description</label>
+                  <input
+                    className="input-field"
+                    value={itemForm.description}
+                    onChange={(event) => setItemForm((prev) => ({ ...prev, description: event.target.value }))}
+                    placeholder="Short service-facing description"
+                  />
                 </div>
-                <div className="input-group">
-                  <label className="input-label">Cost Price</label>
-                  <input className="input-field" type="number" min="0" value={stockForm.costPrice} onChange={(event) => setStockForm((prev) => ({ ...prev, costPrice: event.target.value }))} />
+                <div className="input-group span-2">
+                  <label className="input-label">Item Photo</label>
+                  <input className="input-field" type="file" accept="image/*" onChange={handleItemImageUpload} />
+                  {itemForm.imageUrl ? (
+                    <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
+                      <img
+                        src={itemForm.imageUrl}
+                        alt="Item preview"
+                        style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+                      />
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setItemForm((prev) => ({ ...prev, imageUrl: '' }))}>
+                        Remove photo
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="input-group span-2">
+                  <label className="input-label">AI Tags</label>
+                  <input
+                    className="input-field"
+                    value={itemForm.aiTags}
+                    onChange={(event) => setItemForm((prev) => ({ ...prev, aiTags: event.target.value }))}
+                    placeholder="Comma-separated tags like bestseller, combo, upsell"
+                  />
                 </div>
                 <button className="btn btn-primary btn-full span-2" type="submit" disabled={saving}>
                   {saving ? 'Saving...' : 'Create Item'}
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {showEditModal && selectedItem && (
-          <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-            <div className="modal" onClick={(event) => event.stopPropagation()}>
-              <div className="modal-header">
-                <h2 className="modal-title">Update {selectedItem.name}</h2>
-                <button className="btn btn-ghost btn-icon" onClick={() => setShowEditModal(false)}>
-                  <IconX />
-                </button>
-              </div>
-              <form className="modal-form-grid" onSubmit={handleUpdateItem}>
-                <div className="input-group">
-                  <label className="input-label">Item Name</label>
-                  <input className="input-field" value={editForm.name} onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">SKU</label>
-                  <input className="input-field" value={editForm.sku} onChange={(event) => setEditForm((prev) => ({ ...prev, sku: event.target.value }))} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Quantity</label>
-                  <input className="input-field" type="number" min="0" value={editForm.quantity} onChange={(event) => setEditForm((prev) => ({ ...prev, quantity: event.target.value }))} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Unit</label>
-                  <input className="input-field" value={editForm.unit} onChange={(event) => setEditForm((prev) => ({ ...prev, unit: event.target.value }))} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Min Threshold</label>
-                  <input className="input-field" type="number" min="0" value={editForm.minThreshold} onChange={(event) => setEditForm((prev) => ({ ...prev, minThreshold: event.target.value }))} />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Cost Price</label>
-                  <input className="input-field" type="number" min="0" value={editForm.costPrice} onChange={(event) => setEditForm((prev) => ({ ...prev, costPrice: event.target.value }))} />
-                </div>
-                <button className="btn btn-primary btn-full" type="submit" disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Item'}
-                </button>
-                <button className="btn btn-ghost btn-full" type="button" onClick={handleDeleteItem} disabled={saving || !canDeleteInventory}>
-                  {canDeleteInventory ? 'Delete Item (Admin)' : 'Delete (Admin only)'}
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {showAdjustModal && selectedItem && (
-          <div className="modal-overlay" onClick={() => setShowAdjustModal(false)}>
-            <div className="modal" onClick={(event) => event.stopPropagation()}>
-              <div className="modal-header">
-                <h2 className="modal-title">Adjust {selectedItem.name}</h2>
-                <button className="btn btn-ghost btn-icon" onClick={() => setShowAdjustModal(false)}>
-                  <IconX />
-                </button>
-              </div>
-              <form className="input-group" onSubmit={handleAdjustStock}>
-                <label className="input-label">Adjustment</label>
-                <input className="input-field" type="number" value={adjustment} onChange={(event) => setAdjustment(event.target.value)} placeholder="Use negative values for consumption or wastage" />
-                <label className="input-label">Reason</label>
-                <input className="input-field" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Restock, variance, wastage..." />
-                <button className="btn btn-primary btn-full" type="submit" disabled={saving}>
-                  {saving ? 'Saving...' : 'Apply Adjustment'}
                 </button>
               </form>
             </div>

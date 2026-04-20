@@ -108,7 +108,7 @@ async function handleApiGet(request) {
 
 async function handleApiPost(request) {
   try {
-    return await fetch(request);
+    return await fetch(request.clone());
   } catch {
     const serialized = await serializeRequest(request);
     await addToQueue(serialized);

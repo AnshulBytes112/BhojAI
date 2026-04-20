@@ -16,7 +16,7 @@ import {
   TopBar,
   type ToastItem,
 } from '../../components/shared';
-import { API_BASE, getStoredUser } from '../../lib/api';
+import { API_BASE, getStoredUser, apiRequest } from '../../lib/api';
 import { useOrderStore } from '../../stores/orderStore';
 
 const API = API_BASE;
@@ -318,6 +318,49 @@ function OrderEntryContent() {
     emailingBill: false,
     loadingBillsHistory: false,
   });
+
+  useEffect(() => {
+    async function loadMenu() {
+      try {
+        const [catsData, itemsData] = await Promise.all([
+          apiRequest<any[]>('/menu/categories'),
+          apiRequest<any[]>('/menu/items'),
+        ]);
+
+        if (catsData && catsData.length) {
+          const itemsByCat = new Map<string, any[]>();
+          for (const item of itemsData || []) {
+            const bucket = itemsByCat.get(item.categoryId) || [];
+            bucket.push({
+              id: item.id,
+              name: item.name,
+              price: item.price,
+              available: item.isAvailable ?? true,
+              categoryId: item.categoryId,
+              isVeg: item.dietaryLabel === 'VEG' || item.dietaryLabel === 'VEGAN',
+              aiTags: item.aiTags
+            });
+            itemsByCat.set(item.categoryId, bucket);
+          }
+
+          const normalized = catsData.map((category) => ({
+            id: category.id,
+            name: category.name,
+            emoji: '🍽️',
+            items: itemsByCat.get(category.id) || [],
+          }));
+
+          setCategories(normalized);
+          setActiveCategory((current) => 
+            (current === DEMO_CATEGORIES[0]?.id && normalized.length > 0) ? normalized[0].id : current
+          );
+        }
+      } catch (e) {
+        // Fallback to DEMO_CATEGORIES
+      }
+    }
+    loadMenu();
+  }, []);
 
   const addToast = useCallback((toast: Omit<ToastItem, 'id'>) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1783,8 +1826,8 @@ function OrderEntryContent() {
                     Open Full Bill History
                   </button>
 
-                  <button className="btn btn-primary btn-sm btn-full" onClick={openPaymentModal} disabled={!selectedOrder?.bill?.id || billDue <= 0}>
-                    Open Payment Modal
+                  <button className="btn btn-primary btn-sm btn-full" onClick={() => router.push(`/invoice?orderId=${selectedOrderId}`)} disabled={!selectedOrder?.id || billDue <= 0}>
+                    Checkout
                   </button>
 
                   <div style={{ fontSize: 12, fontWeight: 700 }}>Payments</div>

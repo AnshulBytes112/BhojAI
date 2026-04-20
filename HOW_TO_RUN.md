@@ -10,7 +10,7 @@
 
 ### Step 1: Install Dependencies
 ```bash
-cd c:\Users\ANSHUL\BhojAI
+cd c:\Users\Abish Barnodia\Desktop\last\BhojAI
 npm install
 ```
 

@@ -263,6 +263,7 @@ const navItems: Array<{
   { href: '/pos/tables', icon: IconGrid, label: 'Table', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
   { href: '/pos/reservations', icon: IconClock, label: 'Reservations', badge: 1, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
   { href: '/menu', icon: IconMenu, label: 'Offering', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/inventory', icon: IconInventory, label: 'Inventory', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
   { href: '/pos/bills', icon: IconCash, label: 'Payments', badge: 14, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
   { href: '/invoice', icon: IconPrint, label: 'Invoice', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
   { href: '/user', icon: IconUsers, label: 'User', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },

@@ -1182,6 +1182,8 @@ function OrderEntryContent() {
       await loadOrderDetail(selectedOrderId);
       await loadOrders();
       await loadAuditLogs();
+      setIsPaymentModalOpen(false);
+      router.push('/pos/bills');
     } catch (err) {
       addToast({ icon: '❌', title: 'Order payment failed', message: (err as Error).message });
     } finally {
@@ -1207,6 +1209,8 @@ function OrderEntryContent() {
       await loadOrderDetail(selectedOrderId);
       await loadOrders();
       await loadAuditLogs();
+      setIsPaymentModalOpen(false);
+      router.push('/pos/bills');
     } catch (err) {
       addToast({ icon: '❌', title: 'Top-level payment failed', message: (err as Error).message });
     } finally {

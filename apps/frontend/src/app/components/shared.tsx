@@ -258,14 +258,14 @@ const navItems: Array<{
   badge: number;
   roles: AppRole[];
 }> = [
-  { href: '/pos/tables', icon: IconGrid, label: 'Tables', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/pos/order', icon: IconClipboard, label: 'Orders', badge: 3, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/pos/bills', icon: IconPrint, label: 'Bills', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/kds', icon: IconChef, label: 'Kitchen', badge: 0, roles: ['ADMIN', 'MANAGER', 'CHEF'] },
-  { href: '/menu', icon: IconMenu, label: 'Menu', badge: 0, roles: ['ADMIN', 'MANAGER', 'CHEF'] },
-  { href: '/inventory', icon: IconInventory, label: 'Stock', badge: 0, roles: ['ADMIN', 'MANAGER'] },
-  { href: '/promotions', icon: IconTag, label: 'Promos', badge: 0, roles: ['ADMIN', 'MANAGER'] },
-  { href: '/analytics', icon: IconChart, label: 'Analytics', badge: 0, roles: ['ADMIN', 'MANAGER'] },
+  { href: '/dashboard', icon: IconChart, label: 'Dashboard', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/pos/order', icon: IconClipboard, label: 'POS', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/pos/tables', icon: IconGrid, label: 'Table', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/pos/reservations', icon: IconClock, label: 'Reservations', badge: 1, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/menu', icon: IconMenu, label: 'Offering', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/pos/bills', icon: IconCash, label: 'Payments', badge: 14, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/invoice', icon: IconPrint, label: 'Invoice', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/user', icon: IconUsers, label: 'User', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
 ];
 
 interface SidebarProps {
@@ -275,11 +275,13 @@ interface SidebarProps {
 export function Sidebar({ activePath }: SidebarProps) {
   const router = useRouter();
   const [role, setRole] = useState<AppRole>('WAITER');
+  const [userName, setUserName] = useState('Admin User');
   const [roleReady, setRoleReady] = useState(false);
 
   useEffect(() => {
     const user = getStoredUser();
     setRole(normalizeRole(user?.role));
+    setUserName(user?.name || user?.username || 'Admin User');
     setRoleReady(true);
   }, [activePath]);
 
@@ -300,12 +302,27 @@ export function Sidebar({ activePath }: SidebarProps) {
   };
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">
-        <IconFlame />
+    <aside style={{ width: 240, background: '#f5f4ef', display: 'flex', flexDirection: 'column', borderRight: '1px solid #eae7e0', flexShrink: 0, height: '100%', overflowY: 'auto' }}>
+      
+      {/* Logo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '24px 24px 32px 24px' }}>
+        <div style={{ width: 28, height: 28, background: '#ea580c', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+          <IconFlame className="w-4 h-4" />
+        </div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1a1a', letterSpacing: '-0.5px' }}>RestroBit</div>
       </div>
 
-      <nav className="sidebar-nav">
+      {/* Profile Info */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 24px', marginBottom: 32 }}>
+        <img src={`https://i.pravatar.cc/100?u=${userName}`} alt="Profile" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', textTransform: 'capitalize' }}>{userName}</div>
+          <div style={{ fontSize: 12, color: '#888', textTransform: 'capitalize' }}>{role.toLowerCase()}</div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '0 16px', flex: 1 }}>
         {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activePath.startsWith(item.href);
@@ -313,27 +330,46 @@ export function Sidebar({ activePath }: SidebarProps) {
           return (
             <button
               key={item.href}
-              className={`sidebar-item ${isActive ? 'active' : ''}`}
               onClick={() => router.push(item.href)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                background: isActive ? '#fef2e8' : 'transparent',
+                color: isActive ? '#ea580c' : '#666',
+                fontWeight: isActive ? 600 : 500,
+                fontSize: 14, transition: 'all 0.15s',
+                position: 'relative'
+              }}
+              onMouseEnter={e => !isActive && (e.currentTarget.style.color = '#1a1a1a')}
+              onMouseLeave={e => !isActive && (e.currentTarget.style.color = '#666')}
             >
-              <Icon />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20, color: isActive ? '#ea580c' : '#888' }}>
+                <Icon />
+              </div>
               <span>{item.label}</span>
-              {item.badge > 0 && <span className="sidebar-badge">{item.badge}</span>}
+              {item.badge > 0 && (
+                <span style={{ marginLeft: 'auto', background: isActive ? '#ea580c' : '#333', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12 }}>
+                  {item.badge}
+                </span>
+              )}
+              {/* Active Indicator Left Bar */}
+              {isActive && <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 4, height: 24, background: '#ea580c', borderRadius: '0 4px 4px 0' }} />}
             </button>
           );
         })}
       </nav>
 
-      <div className="sidebar-footer">
-        {canOpenSettings && (
-          <button className="sidebar-item" onClick={() => router.push('/settings')}>
-            <IconCog />
-            <span>Config</span>
-          </button>
-        )}
-        <button className="sidebar-item" onClick={handleExit}>
-          <IconLogout />
-          <span>Exit</span>
+      {/* Footer */}
+      <div style={{ padding: '24px 16px', marginTop: 'auto' }}>
+        <button 
+          onClick={handleExit} 
+          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#666', fontSize: 14, fontWeight: 500, transition: 'color 0.15s', width: '100%' }}
+          onMouseEnter={e => e.currentTarget.style.color = '#ea580c'}
+          onMouseLeave={e => e.currentTarget.style.color = '#666'}
+        >
+          <div style={{ transform: 'rotate(180deg)', display: 'flex' }}>
+            <IconLogout />
+          </div>
+          <span>Logout</span>
         </button>
       </div>
     </aside>

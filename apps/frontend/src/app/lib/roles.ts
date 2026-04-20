@@ -20,6 +20,7 @@ const ROLE_ALLOWED_PATHS: Record<AppRole, string[]> = {
     '/pos/tables',
     '/pos/order',
     '/pos/bills',
+    '/pos/reservations',
   ],
   MANAGER: [
     '/analytics',
@@ -31,8 +32,9 @@ const ROLE_ALLOWED_PATHS: Record<AppRole, string[]> = {
     '/pos/tables',
     '/pos/order',
     '/pos/bills',
+    '/pos/reservations',
   ],
-  WAITER: ['/pos/tables', '/pos/order', '/pos/bills'],
+  WAITER: ['/pos/tables', '/pos/order', '/pos/bills', '/pos/reservations'],
   CHEF: ['/kds', '/menu'],
 };
 

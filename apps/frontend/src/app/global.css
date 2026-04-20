@@ -482,6 +482,49 @@ ul, ol { list-style: none; }
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.hover-card {
+  transition: transform 0.25s var(--ease-smooth), box-shadow 0.25s var(--ease-smooth);
+  cursor: pointer;
+}
+
+.hover-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 28px rgba(0,0,0,0.08) !important;
+}
+
+.hover-item {
+  transition: all 0.2s var(--ease-smooth);
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.hover-item:hover {
+  background: var(--surface-container);
+  transform: translateX(4px);
+}
+
+.hover-chart {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+  cursor: crosshair;
+}
+
+.hover-chart:hover {
+  transform: scale(1.05);
+  filter: drop-shadow(0 8px 16px rgba(229, 139, 18, 0.25));
+}
+
+.hover-bar {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  transform-origin: bottom;
+}
+
+.hover-bar:hover {
+  transform: scaleY(1.05);
+  opacity: 0.8;
+}
+
 /* ─── Table Cards ────────────────────────────────────────────────────────────── */
 .table-grid {
   display: grid;

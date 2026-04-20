@@ -351,7 +351,7 @@ function OrderEntryContent() {
           }));
 
           setCategories(normalized);
-          setActiveCategory((current) => 
+          setActiveCategory((current) =>
             (current === DEMO_CATEGORIES[0]?.id && normalized.length > 0) ? normalized[0].id : current
           );
         }
@@ -671,10 +671,10 @@ function OrderEntryContent() {
         return prev.map((c) =>
           c.id === item.id
             ? {
-                ...c,
-                quantity: c.quantity + 1,
-                subtotal: (c.quantity + 1) * c.price + c.modifierTotal,
-              }
+              ...c,
+              quantity: c.quantity + 1,
+              subtotal: (c.quantity + 1) * c.price + c.modifierTotal,
+            }
             : c
         );
       }
@@ -734,10 +734,10 @@ function OrderEntryContent() {
         return prev.map((c) =>
           c.id === itemToAdd.id
             ? {
-                ...c,
-                quantity: c.quantity + 1,
-                subtotal: (c.quantity + 1) * c.price + c.modifierTotal,
-              }
+              ...c,
+              quantity: c.quantity + 1,
+              subtotal: (c.quantity + 1) * c.price + c.modifierTotal,
+            }
             : c
         );
       }
@@ -1417,12 +1417,12 @@ function OrderEntryContent() {
       const rows = (Array.isArray(data) ? data : []) as BillHistoryItem[];
       const filtered = billHistoryDate
         ? rows.filter((row) => {
-            const d = new Date(row.createdAt);
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}` === billHistoryDate;
-          })
+          const d = new Date(row.createdAt);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}` === billHistoryDate;
+        })
         : rows;
       setBillHistory(filtered);
     } catch (err) {

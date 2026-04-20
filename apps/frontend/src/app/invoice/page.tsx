@@ -80,10 +80,10 @@ function InvoiceContent() {
   return (
     <div className="pos-layout" style={{ background: '#f6f4f1' }}>
       <Sidebar activePath="/invoice" />
-      
+
       <main style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
-          <button onClick={() => router.back()} style={{ width: 40, height: 40, borderRadius: '50%', background: '#fff', border: '1px solid #eae7e0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.transform='scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}>
+          <button onClick={() => router.back()} style={{ width: 40, height: 40, borderRadius: '50%', background: '#fff', border: '1px solid #eae7e0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
             ←
           </button>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1a1a1a', letterSpacing: '-0.5px' }}>Checkout / Generate Invoice</h1>
@@ -92,7 +92,7 @@ function InvoiceContent() {
         <div style={{ display: 'flex', gap: 32 }}>
           {/* Left Panel: Order Details */}
           <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: 24 }}>
-            
+
             {/* Customer Info Box */}
             <div style={{ background: '#fff', padding: 24, borderRadius: 20, border: '1px solid #eae7e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -113,7 +113,7 @@ function InvoiceContent() {
             {/* Order Items */}
             <div style={{ background: '#fff', padding: '24px 32px', borderRadius: 20, border: '1px solid #eae7e0' }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24 }}>Order details</h2>
-              
+
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr', fontSize: 13, fontWeight: 600, color: '#888', marginBottom: 16, paddingBottom: 16, borderBottom: '1px dashed #eae7e0' }}>
                 <div>Dish name</div>
                 <div>Add ons</div>
@@ -140,7 +140,7 @@ function InvoiceContent() {
 
             {/* Bottom Section: Coupon & Totals */}
             <div style={{ display: 'flex', gap: 24 }}>
-              
+
               {/* Coupon Box */}
               <div style={{ flex: 1, background: '#fff', padding: 24, borderRadius: 20, border: '1px solid #eae7e0', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
@@ -151,18 +151,18 @@ function InvoiceContent() {
                   Apply the offered discount coupons or customer provided coupons for special discount on current cart value.
                 </p>
                 <div style={{ display: 'flex', gap: 12, marginTop: 'auto' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Enter code (e.g. BHOJ20)" 
+                  <input
+                    type="text"
+                    placeholder="Enter code (e.g. BHOJ20)"
                     value={coupon}
                     onChange={e => setCoupon(e.target.value)}
                     style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid #ccc', outline: 'none', fontSize: 14 }}
                   />
-                  <button 
+                  <button
                     onClick={handleApplyCoupon}
                     style={{ background: '#ea580c', color: '#fff', border: 'none', padding: '0 24px', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.background='#c2410c'}
-                    onMouseLeave={e => e.currentTarget.style.background='#ea580c'}
+                    onMouseEnter={e => e.currentTarget.style.background = '#c2410c'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#ea580c'}
                   >
                     Apply
                   </button>
@@ -207,12 +207,12 @@ function InvoiceContent() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 40 }}>
-              
+
               {/* Card Option */}
-              <div 
+              <div
                 onClick={() => setPaymentMethod('CARD')}
-                style={{ 
-                  padding: 20, borderRadius: 16, border: paymentMethod === 'CARD' ? '2px solid #ea580c' : '1px solid #eae7e0', 
+                style={{
+                  padding: 20, borderRadius: 16, border: paymentMethod === 'CARD' ? '2px solid #ea580c' : '1px solid #eae7e0',
                   background: paymentMethod === 'CARD' ? '#fff7ec' : '#fff', cursor: 'pointer', transition: 'all 0.2s',
                   display: 'flex', gap: 16, alignItems: 'center'
                 }}
@@ -225,10 +225,10 @@ function InvoiceContent() {
               </div>
 
               {/* Cash Option */}
-              <div 
+              <div
                 onClick={() => setPaymentMethod('CASH')}
-                style={{ 
-                  padding: 20, borderRadius: 16, border: paymentMethod === 'CASH' ? '2px solid #ea580c' : '1px solid #eae7e0', 
+                style={{
+                  padding: 20, borderRadius: 16, border: paymentMethod === 'CASH' ? '2px solid #ea580c' : '1px solid #eae7e0',
                   background: paymentMethod === 'CASH' ? '#fff7ec' : '#fff', cursor: 'pointer', transition: 'all 0.2s',
                   display: 'flex', gap: 16, alignItems: 'center'
                 }}
@@ -241,10 +241,10 @@ function InvoiceContent() {
               </div>
 
               {/* UPI Option */}
-              <div 
+              <div
                 onClick={() => setPaymentMethod('UPI')}
-                style={{ 
-                  padding: 20, borderRadius: 16, border: paymentMethod === 'UPI' ? '2px solid #ea580c' : '1px solid #eae7e0', 
+                style={{
+                  padding: 20, borderRadius: 16, border: paymentMethod === 'UPI' ? '2px solid #ea580c' : '1px solid #eae7e0',
                   background: paymentMethod === 'UPI' ? '#fff7ec' : '#fff', cursor: 'pointer', transition: 'all 0.2s',
                   display: 'flex', gap: 16, alignItems: 'center'
                 }}
@@ -259,18 +259,18 @@ function InvoiceContent() {
             </div>
 
             {/* Confirm Button */}
-            <button 
+            <button
               onClick={handleConfirmPayment}
               disabled={isProcessing}
-              style={{ 
-                marginTop: 'auto', background: isProcessing ? '#888' : '#ea580c', color: '#fff', border: 'none', 
-                padding: '20px', borderRadius: 16, fontSize: 18, fontWeight: 800, cursor: isProcessing ? 'not-allowed' : 'pointer', 
+              style={{
+                marginTop: 'auto', background: isProcessing ? '#888' : '#ea580c', color: '#fff', border: 'none',
+                padding: '20px', borderRadius: 16, fontSize: 18, fontWeight: 800, cursor: isProcessing ? 'not-allowed' : 'pointer',
                 transition: 'all 0.15s', boxShadow: '0 8px 24px rgba(234, 88, 12, 0.2)'
               }}
-              onMouseEnter={e => !isProcessing && (e.currentTarget.style.transform='translateY(-2px)')}
-              onMouseLeave={e => !isProcessing && (e.currentTarget.style.transform='translateY(0)')}
-              onMouseDown={e => !isProcessing && (e.currentTarget.style.transform='scale(0.98)')}
-              onMouseUp={e => !isProcessing && (e.currentTarget.style.transform='translateY(-2px)')}
+              onMouseEnter={e => !isProcessing && (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={e => !isProcessing && (e.currentTarget.style.transform = 'translateY(0)')}
+              onMouseDown={e => !isProcessing && (e.currentTarget.style.transform = 'scale(0.98)')}
+              onMouseUp={e => !isProcessing && (e.currentTarget.style.transform = 'translateY(-2px)')}
             >
               {isProcessing ? 'Processing...' : 'Confirm payment'}
             </button>

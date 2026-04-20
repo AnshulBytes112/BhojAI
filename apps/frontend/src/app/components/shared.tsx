@@ -267,17 +267,17 @@ const navItems: Array<{
   badge: number;
   roles: AppRole[];
 }> = [
-  { href: '/dashboard', icon: IconChart, label: 'Dashboard', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/pos/order', icon: IconClipboard, label: 'POS', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/kds', icon: IconKitchen, label: 'Kitchen', badge: 0, roles: ['ADMIN', 'MANAGER', 'CHEF', 'WAITER'] },
-  { href: '/pos/tables', icon: IconGrid, label: 'Table', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/pos/reservations', icon: IconClock, label: 'Reservations', badge: 1, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/menu', icon: IconMenu, label: 'Offering', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/inventory', icon: IconInventory, label: 'Inventory', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/pos/bills', icon: IconCash, label: 'Payments', badge: 14, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/invoice', icon: IconPrint, label: 'Invoice', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-  { href: '/user', icon: IconUsers, label: 'User', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
-];
+    { href: '/analytics', icon: IconChart, label: 'Dashboard', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/pos/order', icon: IconClipboard, label: 'POS', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/kds', icon: IconKitchen, label: 'Kitchen', badge: 0, roles: ['ADMIN', 'MANAGER', 'CHEF', 'WAITER'] },
+    { href: '/pos/tables', icon: IconGrid, label: 'Table', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/pos/reservations', icon: IconClock, label: 'Reservations', badge: 1, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/menu', icon: IconMenu, label: 'Offering', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/inventory', icon: IconInventory, label: 'Inventory', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/pos/bills', icon: IconCash, label: 'Payments', badge: 14, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/invoice', icon: IconPrint, label: 'Invoice', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+    { href: '/user', icon: IconUsers, label: 'User', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  ];
 
 interface SidebarProps {
   activePath: string;
@@ -314,7 +314,7 @@ export function Sidebar({ activePath }: SidebarProps) {
 
   return (
     <aside style={{ width: 240, background: '#f5f4ef', display: 'flex', flexDirection: 'column', borderRight: '1px solid #eae7e0', flexShrink: 0, height: '100%', overflowY: 'auto' }}>
-      
+
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '24px 24px 32px 24px' }}>
         <div style={{ width: 28, height: 28, background: '#ea580c', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
@@ -371,8 +371,8 @@ export function Sidebar({ activePath }: SidebarProps) {
 
       {/* Footer */}
       <div style={{ padding: '24px 16px', marginTop: 'auto' }}>
-        <button 
-          onClick={handleExit} 
+        <button
+          onClick={handleExit}
           style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#666', fontSize: 14, fontWeight: 500, transition: 'color 0.15s', width: '100%' }}
           onMouseEnter={e => e.currentTarget.style.color = '#ea580c'}
           onMouseLeave={e => e.currentTarget.style.color = '#666'}
@@ -431,7 +431,7 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const router = useRouter();
   const { logout } = useAuthStore();
-  
+
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const dateStr = now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -528,14 +528,14 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
 
       {actions}
 
-      <div 
-        className="topbar-avatar" 
+      <div
+        className="topbar-avatar"
         title={userName}
         onClick={() => setShowProfileMenu(!showProfileMenu)}
         style={{ position: 'relative' }}
       >
         {userInitials}
-        
+
         {showProfileMenu && (
           <div className="topbar-profile-menu">
             <div className="topbar-profile-header">
@@ -543,7 +543,7 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
               <div className="topbar-profile-role">{role}</div>
             </div>
             <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid var(--outline-variant)' }} />
-            <button 
+            <button
               className="topbar-profile-item"
               onClick={() => {
                 router.push('/settings');
@@ -553,7 +553,7 @@ export function TopBar({ title, subtitle, searchValue, onSearchChange, searchPla
               <IconCog />
               Settings
             </button>
-            <button 
+            <button
               className="topbar-profile-item logout"
               onClick={() => {
                 handleLogout();

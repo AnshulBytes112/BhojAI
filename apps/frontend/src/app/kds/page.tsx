@@ -522,78 +522,78 @@ export default function KDSPage() {
                             onDragStart={() => setDraggingKotId(kot.id)}
                             onDragEnd={() => setDraggingKotId('')}
                           >
-                          <div className="kot-card-header">
-                            <div className="flex items-center gap-2">
-                              <div style={{
-                                width: 4, height: 32, borderRadius: 2,
-                                background: urgent ? 'var(--danger)' : col.headerColor,
-                                flexShrink: 0,
-                              }} />
-                              <div>
-                                <div className="kot-table-badge">{kot.tableName}</div>
-                                <div style={{ fontSize: 11, color: 'var(--on-surface-dim)', display: 'flex', gap: 6, alignItems: 'center' }}>
-                                  <span>{kot.orderNumber}</span>
-                                  <span style={{
-                                    background: kot.type === 'DINE_IN' ? '#e8f5e9' : kot.type === 'TAKEAWAY' ? '#fff3e0' : '#e3f2fd',
-                                    color: kot.type === 'DINE_IN' ? '#2e7d32' : kot.type === 'TAKEAWAY' ? '#e65100' : '#1565c0',
-                                    padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700,
-                                  }}>
-                                    {kot.type === 'DINE_IN' ? '🪑 Dine-In' : kot.type === 'TAKEAWAY' ? '🥡 Takeaway' : '🛵 Delivery'}
-                                  </span>
+                            <div className="kot-card-header">
+                              <div className="flex items-center gap-2">
+                                <div style={{
+                                  width: 4, height: 32, borderRadius: 2,
+                                  background: urgent ? 'var(--danger)' : col.headerColor,
+                                  flexShrink: 0,
+                                }} />
+                                <div>
+                                  <div className="kot-table-badge">{kot.tableName}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--on-surface-dim)', display: 'flex', gap: 6, alignItems: 'center' }}>
+                                    <span>{kot.orderNumber}</span>
+                                    <span style={{
+                                      background: kot.type === 'DINE_IN' ? '#e8f5e9' : kot.type === 'TAKEAWAY' ? '#fff3e0' : '#e3f2fd',
+                                      color: kot.type === 'DINE_IN' ? '#2e7d32' : kot.type === 'TAKEAWAY' ? '#e65100' : '#1565c0',
+                                      padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+                                    }}>
+                                      {kot.type === 'DINE_IN' ? '🪑 Dine-In' : kot.type === 'TAKEAWAY' ? '🥡 Takeaway' : '🛵 Delivery'}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            <div style={{ display: 'grid', justifyItems: 'end', gap: 6, minWidth: 116, alignSelf: 'flex-start' }}>
-                              {kot.status === 'COMPLETED' ? (
-                                <div className="kot-done-badge">Done</div>
-                              ) : (
-                                <div className={`kot-timer ${urgent ? 'urgent' : ''}`}>
-                                  ⏱ {getElapsed(kot.createdAt)}
-                                  {urgent && ' ⚠'}
-                                </div>
-                              )}
-                              {nextStatus && kot.status !== 'COMPLETED' && kot.status !== 'CANCELLED' && (
-                                <button
-                                  className={`btn btn-sm ${canAdvance ? 'btn-success' : 'btn-secondary'}`}
-                                  onClick={() => advanceStatus(kot)}
-                                  disabled={!canAdvance}
-                                  title={canAdvance ? `Move to ${nextSectionLabel[kot.status] || nextStatus}` : `${userRole} cannot move ${kot.status} to ${nextStatus}`}
-                                  style={{ minWidth: 116, padding: '6px 10px' }}
-                                >
-                                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                    <IconCheck style={{ width: 13, height: 13 }} />
-                                    <span>Mark as Done</span>
-                                  </span>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            className="kot-items-toggle"
-                            onClick={() => toggleKotItems(kot.id)}
-                            aria-expanded={isExpanded}
-                          >
-                            <span style={{ fontWeight: 700 }}>{kot.items.length} item{kot.items.length === 1 ? '' : 's'} ordered</span>
-                            <span style={{ color: 'var(--on-surface-dim)' }}>{isExpanded ? 'Hide items' : 'Show items'}</span>
-                          </button>
-
-                          {isExpanded && (
-                            <div className="kot-items">
-                              {kot.items.map((item, i) => (
-                                <div key={item.id || i}>
-                                  <div className="kot-item-row">
-                                    <span className="kot-item-qty">{item.quantity}</span>
-                                    <span className="kot-item-name">{item.name}</span>
+                              <div style={{ display: 'grid', justifyItems: 'end', gap: 6, minWidth: 116, alignSelf: 'flex-start' }}>
+                                {kot.status === 'COMPLETED' ? (
+                                  <div className="kot-done-badge">Done</div>
+                                ) : (
+                                  <div className={`kot-timer ${urgent ? 'urgent' : ''}`}>
+                                    ⏱ {getElapsed(kot.createdAt)}
+                                    {urgent && ' ⚠'}
                                   </div>
-                                  {item.notes && (
-                                    <div className="kot-item-note">📝 {item.notes}</div>
-                                  )}
-                                </div>
-                              ))}
+                                )}
+                                {nextStatus && kot.status !== 'COMPLETED' && kot.status !== 'CANCELLED' && (
+                                  <button
+                                    className={`btn btn-sm ${canAdvance ? 'btn-success' : 'btn-secondary'}`}
+                                    onClick={() => advanceStatus(kot)}
+                                    disabled={!canAdvance}
+                                    title={canAdvance ? `Move to ${nextSectionLabel[kot.status] || nextStatus}` : `${userRole} cannot move ${kot.status} to ${nextStatus}`}
+                                    style={{ minWidth: 116, padding: '6px 10px' }}
+                                  >
+                                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                      <IconCheck style={{ width: 13, height: 13 }} />
+                                      <span>Mark as Done</span>
+                                    </span>
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                          )}
+
+                            <button
+                              type="button"
+                              className="kot-items-toggle"
+                              onClick={() => toggleKotItems(kot.id)}
+                              aria-expanded={isExpanded}
+                            >
+                              <span style={{ fontWeight: 700 }}>{kot.items.length} item{kot.items.length === 1 ? '' : 's'} ordered</span>
+                              <span style={{ color: 'var(--on-surface-dim)' }}>{isExpanded ? 'Hide items' : 'Show items'}</span>
+                            </button>
+
+                            {isExpanded && (
+                              <div className="kot-items">
+                                {kot.items.map((item, i) => (
+                                  <div key={item.id || i}>
+                                    <div className="kot-item-row">
+                                      <span className="kot-item-qty">{item.quantity}</span>
+                                      <span className="kot-item-name">{item.name}</span>
+                                    </div>
+                                    {item.notes && (
+                                      <div className="kot-item-note">📝 {item.notes}</div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
 
                           </div>
                         </div>

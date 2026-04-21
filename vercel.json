@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm install --legacy-peer-deps && npm run build:frontend:vercel",
+  "buildCommand": "npm install --legacy-peer-deps && ln -s ../../node_modules apps/frontend/node_modules && cd apps/frontend && next build",
   "outputDirectory": "apps/frontend/.next",
   "framework": "nextjs",
   "env": {

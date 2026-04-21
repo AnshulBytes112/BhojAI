@@ -3,5 +3,9 @@
   "buildCommand": "cd apps/frontend && npm install --legacy-peer-deps && next build",
   "outputDirectory": "apps/frontend/.next",
   "installCommand": "npm install --legacy-peer-deps",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "env": {
+    "NODE_ENV": "production",
+    "NEXT_PUBLIC_API_URL": "https://bhoj-ai.vercel.app/api"
+  }
 }

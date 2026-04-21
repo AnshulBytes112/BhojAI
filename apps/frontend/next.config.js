@@ -17,11 +17,6 @@ const nextConfig = {
     unoptimized: true,
   },
 
-  // Fix for Vercel build issues
-  experimental: {
-    isrMemoryCacheSize: 0,
-  },
-
   swcMinify: true,
 
   typescript: {

@@ -23,11 +23,51 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
 // POST /api/tables
 router.post('/', authorize('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
-  const { number, label, seatCapacity, area, posX, posY } = req.body;
-  const table = await prisma.restaurantTable.create({
-    data: { number, label, seatCapacity, area, posX, posY, restaurantId: req.user!.restaurantId },
-  });
-  res.status(201).json(table);
+  try {
+    console.log('[POST /tables] User:', req.user);
+    console.log('[POST /tables] Body:', req.body);
+    
+    const { number, label, seatCapacity, area, posX, posY } = req.body;
+    
+    // Validate required fields
+    if (!number) {
+      return res.status(400).json({ error: 'Table number is required' });
+    }
+    
+    // Validate restaurantId
+    if (!req.user?.restaurantId) {
+      return res.status(400).json({ error: 'Restaurant ID not found in user context' });
+    }
+    
+    // Verify restaurant exists
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: req.user.restaurantId },
+    });
+    
+    if (!restaurant) {
+      return res.status(400).json({ error: 'Restaurant not found' });
+    }
+    
+    console.log('[POST /tables] Creating table with:', { number, label, seatCapacity, area, restaurantId: req.user.restaurantId });
+    
+    const table = await prisma.restaurantTable.create({
+      data: { 
+        number, 
+        label, 
+        seatCapacity, 
+        area: area || 'MAIN_HALL', 
+        posX, 
+        posY, 
+        restaurantId: req.user.restaurantId 
+      },
+    });
+    
+    console.log('[POST /tables] Table created:', table);
+    res.status(201).json(table);
+  } catch (error: any) {
+    console.error('[POST /tables] Error:', error);
+    res.status(500).json({ error: error.message || 'Failed to create table' });
+  }
 });
 
 // PATCH /api/tables/:id

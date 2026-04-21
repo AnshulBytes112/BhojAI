@@ -10,7 +10,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   const { orderId, isPaid } = req.query;
   const where: Record<string, unknown> = { order: { restaurantId: req.user!.restaurantId } };
   if (orderId) where.orderId = String(orderId);
-  if (isPaid !== undefined) where.isPaid = isPaid === 'true';
+  if (isPaid === 'true') where.isPaid = true;
+  if (isPaid === 'false') where.isPaid = false;
+
+
 
   const bills = await prisma.bill.findMany({
     where,
@@ -25,6 +28,25 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
   res.json(bills);
 });
+
+// GET /api/bills/debug - System-wide debug info
+router.get('/debug', async (req: AuthRequest, res: Response) => {
+  const allBills = await prisma.bill.count();
+  const resBills = await prisma.bill.count({
+    where: { order: { restaurantId: req.user!.restaurantId } }
+  });
+  const unpaidResBills = await prisma.bill.count({
+    where: { isPaid: false, order: { restaurantId: req.user!.restaurantId } }
+  });
+  
+  res.json({
+    totalBillsInSystem: allBills,
+    billsForCurrentRestaurant: resBills,
+    unpaidBillsForCurrentRestaurant: unpaidResBills,
+    currentRestaurantId: req.user!.restaurantId
+  });
+});
+
 
 // GET /api/bills/:id
 router.get('/:id', async (req: AuthRequest, res: Response) => {

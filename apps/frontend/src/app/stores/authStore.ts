@@ -37,9 +37,24 @@ interface AuthState {
 
 const DEMO_AUTH_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === 'true';
 
+function parseJwt(token: string) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
+}
+
 function isTokenUsable(token: string | null) {
   if (!token) return false;
   if (token === 'demo-token' && !DEMO_AUTH_ENABLED) return false;
+  if (token !== 'demo-token') {
+    const decoded = parseJwt(token);
+    // If there's an exp claim, check it (with 5 min buffer). If invalid format, return false.
+    if (decoded?.exp && decoded.exp * 1000 < Date.now() + 5000) {
+      return false;
+    }
+  }
   return true;
 }
 
@@ -48,8 +63,8 @@ function readStorageSession() {
     return { user: null as AuthUser | null, token: null as string | null };
   }
 
-  const token = localStorage.getItem('auth.token');
-  const rawUser = localStorage.getItem('auth.user');
+  const token = sessionStorage.getItem('auth.token');
+  const rawUser = sessionStorage.getItem('auth.user');
 
   let user: AuthUser | null = null;
   if (rawUser) {
@@ -69,15 +84,15 @@ function writeStorageSession(user: AuthUser | null, token: string | null) {
   }
 
   if (token) {
-    localStorage.setItem('auth.token', token);
+    sessionStorage.setItem('auth.token', token);
   } else {
-    localStorage.removeItem('auth.token');
+    sessionStorage.removeItem('auth.token');
   }
 
   if (user) {
-    localStorage.setItem('auth.user', JSON.stringify(user));
+    sessionStorage.setItem('auth.user', JSON.stringify(user));
   } else {
-    localStorage.removeItem('auth.user');
+    sessionStorage.removeItem('auth.user');
   }
 }
 

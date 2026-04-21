@@ -56,3 +56,45 @@ export async function generateBill(
 
   return bill;
 }
+
+export async function recalculateBill(billId: string) {
+  const bill = await prisma.bill.findUnique({
+    where: { id: billId },
+    include: {
+      order: {
+        include: {
+          items: true,
+          restaurant: true,
+        },
+      },
+    },
+  });
+
+  if (!bill || !bill.order) return null;
+
+  const subTotal = bill.order.items.reduce((sum, item) => {
+    return sum + item.quantity * (item.priceAtOrder + item.modifierTotal);
+  }, 0);
+
+  const taxRate = bill.order.restaurant.taxRate / 100;
+  const taxAmount = parseFloat(((subTotal - bill.discountAmount) * taxRate).toFixed(2));
+  const serviceCharge = parseFloat(
+    ((subTotal - bill.discountAmount) * (bill.order.restaurant.serviceChargeRate / 100)).toFixed(2)
+  );
+
+  const rawTotal = subTotal - bill.discountAmount + taxAmount + serviceCharge;
+  const roundOff = parseFloat((Math.round(rawTotal) - rawTotal).toFixed(2));
+  const totalAmount = Math.round(rawTotal);
+
+  return await prisma.bill.update({
+    where: { id: billId },
+    data: {
+      subTotal,
+      taxAmount,
+      serviceCharge,
+      totalAmount,
+      roundOff,
+    },
+  });
+}
+

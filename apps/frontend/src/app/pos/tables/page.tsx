@@ -1,4 +1,4 @@
-'use client';
+  'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -32,6 +32,7 @@ interface Table {
     total: number;
     itemCount: number;
     createdAt: string;
+    customerName?: string | null;
   };
 }
 
@@ -77,45 +78,12 @@ const AREA_ZONES = [
 
 const GRID_SIZE_PERCENT = 4;
 
-// Demo data
-const DEMO_TABLES: Table[] = [
-  { id: 't1',  name: 'T01', capacity: 2, status: 'AVAILABLE' },
-  { id: 't2',  name: 'T02', capacity: 4, status: 'OCCUPIED',  currentOrder: { id: 'o1', total: 1240, itemCount: 5, createdAt: new Date(Date.now()-34*60000).toISOString() } },
-  { id: 't3',  name: 'T03', capacity: 6, status: 'RESERVED' },
-  { id: 't4',  name: 'T04', capacity: 4, status: 'AVAILABLE' },
-  { id: 't5',  name: 'T05', capacity: 8, status: 'OCCUPIED',  currentOrder: { id: 'o2', total: 3680, itemCount: 12, createdAt: new Date(Date.now()-18*60000).toISOString() } },
-  { id: 't6',  name: 'T06', capacity: 2, status: 'AVAILABLE' },
-  { id: 't7',  name: 'T07', capacity: 4, status: 'OCCUPIED',  currentOrder: { id: 'o3', total: 890,  itemCount: 3,  createdAt: new Date(Date.now()-7*60000).toISOString() } },
-  { id: 't8',  name: 'T08', capacity: 4, status: 'RESERVED' },
-  { id: 't9',  name: 'T09', capacity: 2, status: 'AVAILABLE' },
-  { id: 't10', name: 'T10', capacity: 6, status: 'OCCUPIED',  currentOrder: { id: 'o4', total: 2100, itemCount: 8,  createdAt: new Date(Date.now()-55*60000).toISOString() } },
-  { id: 't11', name: 'T11', capacity: 4, status: 'AVAILABLE' },
-  { id: 't12', name: 'T12', capacity: 4, status: 'OCCUPIED',  currentOrder: { id: 'o5', total: 560,  itemCount: 2,  createdAt: new Date(Date.now()-4*60000).toISOString() } },
-  { id: 't13', name: 'T13', capacity: 8, status: 'AVAILABLE' },
-  { id: 't14', name: 'T14', capacity: 2, status: 'RESERVED' },
-  { id: 't15', name: 'T15', capacity: 4, status: 'AVAILABLE' },
-  { id: 't16', name: 'T16', capacity: 6, status: 'OCCUPIED',  currentOrder: { id: 'o6', total: 4200, itemCount: 15, createdAt: new Date(Date.now()-42*60000).toISOString() } },
-  { id: 't17', name: 'T17', capacity: 2, status: 'AVAILABLE' },
-  { id: 't18', name: 'T18', capacity: 4, status: 'AVAILABLE' },
-  { id: 't19', name: 'T19', capacity: 6, status: 'OCCUPIED',  currentOrder: { id: 'o7', total: 1850, itemCount: 7,  createdAt: new Date(Date.now()-22*60000).toISOString() } },
-  { id: 't20', name: 'T20', capacity: 4, status: 'AVAILABLE' },
-];
-
-function getElapsed(iso: string) {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 60) return `${mins}m`;
-  return `${Math.floor(mins/60)}h ${mins%60}m`;
-}
-
-function isLongWait(iso: string) {
-  return (Date.now() - new Date(iso).getTime()) > 45 * 60000;
-}
-
-export default function TablesPage() {
+function TablesPage() {
   const router = useRouter();
-  const syncTablesToStore = useTableStore((state) => state.setTables);
+  const setTablesInStore = useTableStore((state) => state.setTables);
   const setSelectedTableId = useTableStore((state) => state.setSelectedTableId);
-  const [tables, setTables] = useState<Table[]>(DEMO_TABLES);
+
+  const [tables, setTables] = useState<Table[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'ALL' | Status>('ALL');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -133,6 +101,7 @@ export default function TablesPage() {
   const [statusFlashTableId, setStatusFlashTableId] = useState<string>('');
   const longPressTimerRef = useRef<number | null>(null);
   const floorRef = useRef<HTMLDivElement>(null);
+  const initialFetchRef = useRef<boolean>(true);
 
   const hapticPulse = (pattern: number | number[] = 12) => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -141,10 +110,17 @@ export default function TablesPage() {
   };
 
   const clearSessionAndRedirect = useCallback(() => {
-    localStorage.removeItem('auth.token');
-    localStorage.removeItem('auth.user');
+    sessionStorage.removeItem('auth.token');
+    sessionStorage.removeItem('auth.user');
     router.replace('/login');
   }, [router]);
+
+  const syncTablesToStore = useCallback(
+    (nextTables: Table[]) => {
+      setTablesInStore(nextTables);
+    },
+    [setTablesInStore]
+  );
 
   // Update clock every minute
   useEffect(() => {
@@ -155,7 +131,7 @@ export default function TablesPage() {
   // Fetch tables from API
   const fetchTables = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       if (!token) {
         clearSessionAndRedirect();
         return;
@@ -196,15 +172,21 @@ export default function TablesPage() {
                 total: billTotal,
                 itemCount,
                 createdAt: liveOrder.createdAt,
+                customerName: liveOrder.customerName || null,
               }
             : undefined,
         };
       });
-      setTables(normalized.length ? normalized : DEMO_TABLES);
-      syncTablesToStore(normalized.length ? normalized : DEMO_TABLES);
+      setTables(normalized);
+      syncTablesToStore(normalized);
     } catch {
-      setTables(DEMO_TABLES);
-      syncTablesToStore(DEMO_TABLES);
+      setTables([]);
+      syncTablesToStore([]);
+    } finally {
+      if (initialFetchRef.current) {
+         setLoading(false);
+         initialFetchRef.current = false;
+      }
     }
   }, [clearSessionAndRedirect, syncTablesToStore]);
 
@@ -302,7 +284,7 @@ export default function TablesPage() {
 
     setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, posX, posY, area } : t)));
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       await fetch(`${API}/tables/${tableId}`, {
         method: 'PATCH',
         headers: {
@@ -336,28 +318,49 @@ export default function TablesPage() {
     e.preventDefault();
     if (!canManageTables || !tableForm.number.trim()) return;
     setLoading(true);
+    
+    const tableName = tableForm.number.trim();
+    const token = localStorage.getItem('auth.token');
+    
     try {
-      const token = localStorage.getItem('auth.token');
+      console.log('Creating table:', { tableName, token: token ? 'Present' : 'Missing', API });
+      
+      const requestBody = {
+        number: tableName,
+        label: tableForm.label.trim() || tableName,
+        seatCapacity: Number(tableForm.seatCapacity || 4),
+        area: tableForm.area || 'MAIN_HALL',
+      };
+      
+      console.log('Request payload:', requestBody);
+      
       const res = await fetch(`${API}/tables`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          number: tableForm.number.trim(),
-          label: tableForm.label.trim() || tableForm.number.trim(),
-          seatCapacity: Number(tableForm.seatCapacity || 4),
-          area: tableForm.area || 'MAIN_HALL',
-        }),
+        body: JSON.stringify(requestBody),
       });
+      
+      console.log('Response status:', res.status);
+      
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload?.error || 'Failed to create table');
-      showToast({ icon: '✅', title: 'Table created', message: `${tableForm.number.trim()} is now available.` });
-      setShowCreateModal(false);
+      console.log('Response payload:', payload);
+      
+      if (!res.ok) throw new Error(payload?.error || `Failed to create table (${res.status})`);
+      
+      // Reset form and close modal first
       setTableForm({ number: '', label: '', seatCapacity: '4', area: 'MAIN_HALL' });
+      setShowCreateModal(false);
+      
+      // Fetch tables to show the new one immediately
       await fetchTables();
+      
+      // Show success toast after data is loaded
+      showToast({ icon: '✅', title: 'Table created', message: `${tableName} is now available.` });
     } catch (error) {
+      console.error('Create table error:', error);
       showToast({ icon: '❌', title: 'Create failed', message: (error as Error).message });
     } finally {
       setLoading(false);
@@ -369,7 +372,7 @@ export default function TablesPage() {
     if (!selectedTable || !canManageTables) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       const [metaRes, statusRes] = await Promise.all([
         fetch(`${API}/tables/${selectedTable.id}`, {
           method: 'PATCH',
@@ -418,7 +421,7 @@ export default function TablesPage() {
     if (!selectedTable || !canDeleteTables) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth.token');
+      const token = sessionStorage.getItem('auth.token');
       const res = await fetch(`${API}/tables/${selectedTable.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -448,6 +451,22 @@ export default function TablesPage() {
   const totalRevenue = tables
     .filter((t) => t.currentOrder)
     .reduce((sum, t) => sum + (t.currentOrder?.total || 0), 0);
+
+  const getElapsed = (createdAt: string) => {
+    const elapsedMinutes = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 60000));
+    if (elapsedMinutes < 60) {
+      return `${elapsedMinutes}m`;
+    }
+
+    const hours = Math.floor(elapsedMinutes / 60);
+    const minutes = elapsedMinutes % 60;
+    return `${hours}h ${minutes}m`;
+  };
+
+  const isLongWait = (createdAt: string) => {
+    const elapsedMinutes = Math.max(0, Math.floor((now - new Date(createdAt).getTime()) / 60000));
+    return elapsedMinutes >= 30;
+  };
 
   return (
     <div className="pos-layout">
@@ -620,7 +639,12 @@ export default function TablesPage() {
           )}
 
           {/* Grid */}
-          {filtered.length > 0 && layoutMode === 'GRID' ? (
+          {loading && initialFetchRef.current ? (
+            <div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--on-surface-dim)' }}>
+              <img src="/placeholder-loading.svg" alt="Loading..." style={{ width: 48, height: 48, filter: 'grayscale(1)', opacity: 0.5, animation: 'spin 1s linear infinite', marginBottom: 12 }} />
+              <div>Loading Tables...</div>
+            </div>
+          ) : filtered.length > 0 && layoutMode === 'GRID' ? (
             <div className="table-grid">
               {filtered.map((table) => (
                 <div
@@ -655,6 +679,11 @@ export default function TablesPage() {
                   {/* Order info */}
                   {table.currentOrder && (
                     <>
+                      {table.currentOrder.customerName && (
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--on-surface)', marginTop: 4, padding: '4px 6px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 6 }}>
+                          👤 {table.currentOrder.customerName}
+                        </div>
+                      )}
                       <div className="table-amount">
                         ₹{table.currentOrder.total.toLocaleString('en-IN')}
                         <span style={{ fontSize: 11, color: 'var(--on-surface-dim)', fontWeight: 500, marginLeft: 4 }}>
@@ -837,3 +866,5 @@ export default function TablesPage() {
     </div>
   );
 }
+
+export default TablesPage;

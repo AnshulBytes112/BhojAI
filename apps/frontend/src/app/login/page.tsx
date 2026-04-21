@@ -38,6 +38,25 @@ export default function LoginPage() {
     }
   }, [hydrated, isAuthenticated, router, user?.role]);
 
+  useEffect(() => {
+    if (tab !== 'pin') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key >= '0' && e.key <= '9') {
+        appendPin(e.key);
+      } else if (e.key === 'Backspace') {
+        deletePin();
+      } else if (e.key === 'Enter' && pin.length >= 4) {
+        // Need to wrap confirmPin in a timeout or call it directly.
+        // It relies on state from this closure, which is updated since pin is in deps.
+        confirmPin();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [tab, pin, selectedStaff]);
+
   const handlePasswordLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);

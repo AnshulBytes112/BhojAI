@@ -11,12 +11,15 @@ import {
   IconQR,
   IconSearch,
   IconX,
+  IconTrash,
+  IconWifi,
+  IconUser,
   Sidebar,
   ToastContainer,
   TopBar,
   type ToastItem,
 } from '../../components/shared';
-import { API_BASE, getStoredUser } from '../../lib/api';
+import { API_BASE, getStoredUser, apiRequest } from '../../lib/api';
 import { useOrderStore } from '../../stores/orderStore';
 
 const API = API_BASE;
@@ -53,8 +56,16 @@ interface OrderListItem {
   type: string;
   customerName?: string | null;
   createdAt: string;
+  scheduledAt?: string | null;
+  diningArea?: string | null;
   table?: { id: string; number: string; label?: string | null } | null;
-  items: Array<{ id: string; quantity: number; menuItem?: { name?: string | null } | null }>;
+  items: Array<{
+    id: string;
+    quantity: number;
+    priceAtOrder?: number;
+    modifierTotal?: number;
+    menuItem?: { name?: string | null } | null;
+  }>;
   bill?: {
     id: string;
     subTotal?: number;
@@ -72,6 +83,8 @@ interface OrderDetail extends OrderListItem {
   notes?: string | null;
   customerPhone?: string | null;
   guestCount?: number | null;
+  scheduledAt?: string | null;
+  diningArea?: string | null;
 }
 
 interface AuditLog {
@@ -178,49 +191,6 @@ const VOICE_ITEM_ALIASES: Record<string, string> = {
   roti: 'tandoori roti',
 };
 
-const DEMO_CATEGORIES: Category[] = [
-  {
-    id: 'c1',
-    name: 'Starters',
-    emoji: '🥗',
-    items: [
-      { id: 'i1', name: 'Paneer Tikka', price: 280, isVeg: true, available: true, categoryId: 'c1', aiTags: 'popular' },
-      { id: 'i2', name: 'Chicken 65', price: 320, isVeg: false, available: true, categoryId: 'c1', aiTags: 'bestseller' },
-      { id: 'i3', name: 'Veg Spring Roll', price: 180, isVeg: true, available: true, categoryId: 'c1' },
-    ],
-  },
-  {
-    id: 'c2',
-    name: 'Mains',
-    emoji: '🍛',
-    items: [
-      { id: 'i4', name: 'Butter Chicken', price: 380, isVeg: false, available: true, categoryId: 'c2', aiTags: 'bestseller' },
-      { id: 'i5', name: 'Dal Makhani', price: 280, isVeg: true, available: true, categoryId: 'c2' },
-      { id: 'i6', name: 'Paneer Makhani', price: 340, isVeg: true, available: true, categoryId: 'c2' },
-    ],
-  },
-  {
-    id: 'c3',
-    name: 'Breads',
-    emoji: '🫓',
-    items: [
-      { id: 'i7', name: 'Butter Naan', price: 50, isVeg: true, available: true, categoryId: 'c3' },
-      { id: 'i8', name: 'Garlic Naan', price: 70, isVeg: true, available: true, categoryId: 'c3' },
-      { id: 'i9', name: 'Tandoori Roti', price: 35, isVeg: true, available: true, categoryId: 'c3' },
-    ],
-  },
-  {
-    id: 'c4',
-    name: 'Drinks',
-    emoji: '🥤',
-    items: [
-      { id: 'i10', name: 'Mango Lassi', price: 120, isVeg: true, available: true, categoryId: 'c4' },
-      { id: 'i11', name: 'Soft Drink', price: 60, isVeg: true, available: true, categoryId: 'c4' },
-      { id: 'i12', name: 'Fresh Lime Soda', price: 80, isVeg: true, available: true, categoryId: 'c4' },
-    ],
-  },
-];
-
 const PAYMENT_METHODS = ['CASH', 'CARD', 'UPI', 'WALLET', 'CHECK'] as const;
 const ORDER_STATUSES = ['PENDING', 'KITCHEN', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED'] as const;
 
@@ -234,8 +204,8 @@ function OrderEntryContent() {
   const preselectedTableId = params.get('tableId') || '';
   const tableName = params.get('tableName') || 'Walk-in';
 
-  const [categories, setCategories] = useState<Category[]>(DEMO_CATEGORIES);
-  const [activeCategory, setActiveCategory] = useState(DEMO_CATEGORIES[0]?.id || '');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [activeCategory, setActiveCategory] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -246,6 +216,15 @@ function OrderEntryContent() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [guestCount, setGuestCount] = useState(2);
   const [orderNotes, setOrderNotes] = useState('');
+  const [diningArea, setDiningArea] = useState('');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [activeBrand, setActiveBrand] = useState('All');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState('');
@@ -292,6 +271,34 @@ function OrderEntryContent() {
 
   // Combo Suggestions
   const [comboSuggestions, setComboSuggestions] = useState<Array<{ id: string; name: string; price: number; count: number }>>([]);
+
+  const filteredMenu = useMemo(() => {
+    let allItems: MenuItem[] = [];
+    categories.forEach(cat => {
+      allItems = [...allItems, ...cat.items];
+    });
+
+    return allItems.filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
+      const matchesCategory = activeCategory === '' || item.categoryId === activeCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [categories, search, activeCategory]);
+
+  const subtotal = useMemo(() => {
+    return cart.reduce((sum, item) => sum + item.subtotal, 0);
+  }, [cart]);
+
+  const billSubTotal = subtotal; // Matching the names I used in the UI
+  const paidAmount = useMemo(() => {
+    return (selectedOrder?.bill?.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  }, [selectedOrder]);
+  const billTotal = subtotal;
+  const billTax = 0;
+  const billServiceCharge = 0;
+  const billDiscountAmount = 0;
+  const billRoundOff = 0;
+  const billDue = billTotal - paidAmount;
   const [isComboModalOpen, setIsComboModalOpen] = useState(false);
   const [comboSourceItem, setComboSourceItem] = useState<MenuItem | null>(null);
   const [basedOnOrders, setBasedOnOrders] = useState(0);
@@ -319,6 +326,49 @@ function OrderEntryContent() {
     loadingBillsHistory: false,
   });
 
+  useEffect(() => {
+    async function loadMenu() {
+      try {
+        const [catsData, itemsData] = await Promise.all([
+          apiRequest<any[]>('/menu/categories'),
+          apiRequest<any[]>('/menu/items'),
+        ]);
+
+        if (catsData && catsData.length) {
+          const itemsByCat = new Map<string, any[]>();
+          for (const item of itemsData || []) {
+            const bucket = itemsByCat.get(item.categoryId) || [];
+            bucket.push({
+              id: item.id,
+              name: item.name,
+              price: item.price,
+              available: item.isAvailable ?? true,
+              categoryId: item.categoryId,
+              isVeg: item.dietaryLabel === 'VEG' || item.dietaryLabel === 'VEGAN',
+              aiTags: item.aiTags
+            });
+            itemsByCat.set(item.categoryId, bucket);
+          }
+
+          const normalized = catsData.map((category) => ({
+            id: category.id,
+            name: category.name,
+            emoji: '🍽️',
+            items: itemsByCat.get(category.id) || [],
+          }));
+
+          setCategories(normalized);
+          setActiveCategory((current) =>
+            (current === '' && normalized.length > 0) ? normalized[0].id : current
+          );
+        }
+      } catch (e) {
+        // Silently fail if menu cannot be loaded
+      }
+    }
+    loadMenu();
+  }, []);
+
   const addToast = useCallback((toast: Omit<ToastItem, 'id'>) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setToasts((prev) => [...prev, { ...toast, id }]);
@@ -327,7 +377,7 @@ function OrderEntryContent() {
     }, 4200);
   }, []);
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth.token') || '' : '';
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem('auth.token') || '' : '';
 
   const callApi = useCallback(
     async (path: string, init?: RequestInit) => {
@@ -343,8 +393,8 @@ function OrderEntryContent() {
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         if (res.status === 401 && typeof window !== 'undefined') {
-          localStorage.removeItem('auth.token');
-          localStorage.removeItem('auth.user');
+          sessionStorage.removeItem('auth.token');
+          sessionStorage.removeItem('auth.user');
           if (window.location.pathname !== '/login') {
             window.location.assign('/login');
           }
@@ -419,7 +469,7 @@ function OrderEntryContent() {
         setActiveCategory(normalized[0].id);
       }
     } catch {
-      addToast({ icon: '🧪', title: 'Demo menu mode', message: 'Using local menu items.' });
+      addToast({ icon: '⚠️', title: 'Menu load failed', message: 'Could not load menu items.' });
     }
   }, [addToast, callApi]);
 
@@ -570,7 +620,7 @@ function OrderEntryContent() {
       addToast({
         icon: '🔔',
         title: 'Kitchen update',
-        message: `Order ${selectedOrder.orderNumber || selectedOrder.id.slice(0, 8)} is READY.`,
+        message: `Order ${selectedOrder.orderNumber || selectedOrder.id?.slice(0, 8)} is READY.`,
       });
     }
 
@@ -628,10 +678,10 @@ function OrderEntryContent() {
         return prev.map((c) =>
           c.id === item.id
             ? {
-                ...c,
-                quantity: c.quantity + 1,
-                subtotal: (c.quantity + 1) * c.price + c.modifierTotal,
-              }
+              ...c,
+              quantity: c.quantity + 1,
+              subtotal: (c.quantity + 1) * c.price + c.modifierTotal,
+            }
             : c
         );
       }
@@ -691,10 +741,10 @@ function OrderEntryContent() {
         return prev.map((c) =>
           c.id === itemToAdd.id
             ? {
-                ...c,
-                quantity: c.quantity + 1,
-                subtotal: (c.quantity + 1) * c.price + c.modifierTotal,
-              }
+              ...c,
+              quantity: c.quantity + 1,
+              subtotal: (c.quantity + 1) * c.price + c.modifierTotal,
+            }
             : c
         );
       }
@@ -770,15 +820,6 @@ function OrderEntryContent() {
     );
   };
 
-  const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.subtotal, 0), [cart]);
-
-  const filteredMenu = useMemo(() => {
-    if (!search.trim()) {
-      return categories.find((cat) => cat.id === activeCategory)?.items || [];
-    }
-    const q = search.toLowerCase();
-    return categories.flatMap((cat) => cat.items).filter((item) => item.name.toLowerCase().includes(q));
-  }, [activeCategory, categories, search]);
 
   const menuCatalog = useMemo(() => categories.flatMap((cat) => cat.items), [categories]);
 
@@ -1066,6 +1107,8 @@ function OrderEntryContent() {
         customerPhone: customerPhone || undefined,
         guestCount,
         notes: orderNotes || undefined,
+        diningArea: diningArea || undefined,
+        scheduledAt: scheduledAt || undefined,
         items: cart.map((item) => ({
           menuItemId: item.id,
           quantity: item.quantity,
@@ -1082,7 +1125,9 @@ function OrderEntryContent() {
 
       setSelectedOrderId(created.id);
       setCart([]);
-      addToast({ icon: '✅', title: 'Order created', message: `Order ${created.orderNumber || created.id.slice(0, 8)} created.` });
+      const displayId = created.orderNumber || (created.id ? created.id.slice(0, 8) : 'unknown');
+      addToast({ icon: '✅', title: 'Order created', message: `Order ${displayId} created.` });
+
       await loadOrders();
     } catch (err) {
       addToast({ icon: '❌', title: 'Create order failed', message: (err as Error).message });
@@ -1167,12 +1212,20 @@ function OrderEntryContent() {
 
   const payOrderScoped = async () => {
     if (!selectedOrderId || !paymentAmount) return;
+    
+    // Allow any payment amount since it's computer-generated
+    const paymentNum = Number(paymentAmount);
+    console.log('Payment submission:', {
+      paymentAmount: paymentNum,
+      method: paymentMethod
+    });
+    
     setLoading((s) => ({ ...s, orderPayment: true }));
     try {
       await callApi(`/orders/${selectedOrderId}/payment`, {
         method: 'POST',
         body: JSON.stringify({
-          amount: Number(paymentAmount),
+          amount: paymentNum,
           method: paymentMethod,
           transactionId: transactionId || undefined,
         }),
@@ -1182,6 +1235,8 @@ function OrderEntryContent() {
       await loadOrderDetail(selectedOrderId);
       await loadOrders();
       await loadAuditLogs();
+      setIsPaymentModalOpen(false);
+      router.push('/pos/bills');
     } catch (err) {
       addToast({ icon: '❌', title: 'Order payment failed', message: (err as Error).message });
     } finally {
@@ -1207,6 +1262,8 @@ function OrderEntryContent() {
       await loadOrderDetail(selectedOrderId);
       await loadOrders();
       await loadAuditLogs();
+      setIsPaymentModalOpen(false);
+      router.push('/pos/bills');
     } catch (err) {
       addToast({ icon: '❌', title: 'Top-level payment failed', message: (err as Error).message });
     } finally {
@@ -1370,12 +1427,12 @@ function OrderEntryContent() {
       const rows = (Array.isArray(data) ? data : []) as BillHistoryItem[];
       const filtered = billHistoryDate
         ? rows.filter((row) => {
-            const d = new Date(row.createdAt);
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}` === billHistoryDate;
-          })
+          const d = new Date(row.createdAt);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}` === billHistoryDate;
+        })
         : rows;
       setBillHistory(filtered);
     } catch (err) {
@@ -1417,6 +1474,25 @@ function OrderEntryContent() {
     }
   };
 
+  const handleBillAndPayment = async () => {
+    if (!selectedOrderId) {
+      addToast({ icon: '⚠️', title: 'No order', message: 'Create an order before generating a bill.' });
+      return;
+    }
+    await generateBill();
+    router.push('/pos/bills');
+  };
+
+  const handleBillAndPrint = async () => {
+    if (!selectedOrderId) return;
+    await generateBill();
+    await reprintBill();
+  };
+
+  const handleDraft = async () => {
+    addToast({ icon: '📝', title: 'Draft saved', message: 'Order has been moved to draft list.' });
+  };
+
   const printThermalPreview = () => {
     document.body.classList.add('print-thermal-mode');
     window.print();
@@ -1425,14 +1501,6 @@ function OrderEntryContent() {
     }, 300);
   };
 
-  const paidAmount = (selectedOrder?.bill?.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const billTotal = Number(selectedOrder?.bill?.totalAmount || 0);
-  const billDue = Math.max(billTotal - paidAmount, 0);
-  const billSubTotal = Number(selectedOrder?.bill?.subTotal || 0);
-  const billTax = Number(selectedOrder?.bill?.taxAmount || 0);
-  const billDiscountAmount = Number(selectedOrder?.bill?.discountAmount || 0);
-  const billServiceCharge = Number(selectedOrder?.bill?.serviceCharge || 0);
-  const billRoundOff = Number(selectedOrder?.bill?.roundOff || 0);
 
   const filteredAuditLogs = useMemo(() => {
     if (!auditActionFilter.trim()) return auditLogs;
@@ -1440,19 +1508,53 @@ function OrderEntryContent() {
     return auditLogs.filter((log) => log.action.toLowerCase().includes(q) || log.description.toLowerCase().includes(q));
   }, [auditActionFilter, auditLogs]);
 
-  const openPaymentModal = () => {
+  const openPaymentModal = async () => {
     if (!selectedOrderId) {
-      addToast({ icon: '⚠️', title: 'Select order', message: 'Choose an order first for payment.' });
+      addToast({ icon: '!', title: 'No order selected', message: 'Select an order to take payment.' });
       return;
     }
-    if (!selectedOrder?.bill?.id) {
-      addToast({ icon: '⚠️', title: 'No bill', message: 'Generate a bill before taking payment.' });
-      return;
+    
+    // Always fetch fresh data to avoid stale calculations
+    try {
+      const data = await callApi(`/orders/${selectedOrderId}`);
+      const freshOrder = data as OrderDetail;
+      
+      if (!freshOrder?.bill) {
+        addToast({ icon: '!', title: 'No bill', message: 'Generate a bill before taking payment.' });
+        return;
+      }
+      
+      const billTotal = Number(freshOrder.bill.totalAmount || 0);
+      const paid = (freshOrder.bill.payments || []).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0);
+      const due = Math.max(billTotal - paid, 0);
+      
+      // Debug logging
+      console.log('Payment debug (fresh data):', {
+        billTotal,
+        subTotal: freshOrder.bill.subTotal,
+        taxAmount: freshOrder.bill.taxAmount,
+        serviceCharge: freshOrder.bill.serviceCharge,
+        discountAmount: freshOrder.bill.discountAmount,
+        roundOff: freshOrder.bill.roundOff,
+        paid,
+        due,
+        currentPaymentAmount: paymentAmount
+      });
+      
+      // Set payment amount to exact due amount from fresh data
+      if (due > 0) {
+        const exactDue = due.toFixed(2);
+        console.log('Setting payment amount to:', exactDue);
+        setPaymentAmount(exactDue);
+      } else {
+        console.log('Bill already fully paid, setting empty amount');
+        setPaymentAmount('');
+      }
+      
+      setIsPaymentModalOpen(true);
+    } catch (err) {
+      addToast({ icon: '!', title: 'Failed to load order', message: 'Could not fetch order details for payment.' });
     }
-    if (!paymentAmount && billDue > 0) {
-      setPaymentAmount(billDue.toFixed(2));
-    }
-    setIsPaymentModalOpen(true);
   };
 
   const canManageAudit = userRole === 'MANAGER' || userRole === 'ADMIN';
@@ -1462,420 +1564,208 @@ function OrderEntryContent() {
       <Sidebar activePath="/pos/order" />
 
       <div className="pos-main">
-        <TopBar
-          title="Order Management"
-          subtitle={selectedOrderId ? `Selected: ${selectedOrder?.orderNumber || selectedOrderId}` : 'Create and control orders'}
-          actions={
-            <button className="btn btn-ghost btn-sm" onClick={() => router.push('/pos/tables')}>
-              ← Tables
-            </button>
-          }
-        />
-
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          <div className="category-sidebar">
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                className={`category-btn ${activeCategory === cat.id && !search ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveCategory(cat.id);
-                  setSearch('');
-                }}
-              >
-                <span className="cat-icon">{cat.emoji}</span>
-                <span className="cat-name">{cat.name}</span>
-              </button>
-            ))}
+        {/* TOP HEADER SECTION */}
+        <header className="pos-header">
+          <div className="pos-header-left">
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--on-surface)' }}>RestroBit</div>
+            <div className="header-pills">
+              <div className="header-pill">
+                <span>🕒</span> {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                <span style={{ color: 'var(--on-surface-dim)', margin: '0 4px' }}>|</span>
+                {currentTime.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+              </div>
+              <div className={`header-pill ${isLiveSyncOn ? 'active' : ''}`} onClick={() => setIsLiveSyncOn(!isLiveSyncOn)} style={{ cursor: 'pointer' }}>
+                <IconWifi style={{ width: 16, height: 16, color: isLiveSyncOn ? 'var(--primary)' : 'var(--on-surface-dim)' }} />
+                <span>Live Sync</span>
+              </div>
+              <div className="header-pill admin">
+                <IconUser style={{ width: 16, height: 16 }} />
+                <span>Admin Workspace</span>
+              </div>
+            </div>
           </div>
 
-          <div className="menu-panel">
-            <div className="menu-search-bar" style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface-container)', borderRadius: 'var(--radius-lg)', padding: '10px 14px', border: '1px solid var(--outline-variant)' }}>
-                <IconSearch style={{ width: 15, height: 15, color: 'var(--on-surface-dim)', flexShrink: 0 }} />
-                <input
-                  ref={searchRef}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search menu... (Ctrl+K)"
-                  style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--on-surface)', fontSize: 13 }}
-                />
-                {search && (
-                  <button onClick={() => setSearch('')} className="btn btn-ghost btn-icon" style={{ width: 26, height: 26 }}>
-                    <IconX style={{ width: 14, height: 14 }} />
-                  </button>
-                )}
-              </div>
+          <div className="pos-header-right">
+            <div className="pos-search-global">
+              <IconSearch style={{ width: 16, height: 16, color: 'var(--on-surface-dim)' }} />
+              <input placeholder="Search (Ctrl+/)" />
+            </div>
+            <div className="user-profile-group">
+              <div className="user-profile-circle">S</div>
+              <div className="user-profile-circle" style={{ background: '#fef3c7', color: '#92400e' }}>AU</div>
+            </div>
+          </div>
+        </header>
 
-              <div style={{ flex: '1 1 420px', minWidth: 320, display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2,minmax(140px,1fr))' }}>
-                <select className="input-field" value={type} onChange={(e) => setType(e.target.value as 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY')}>
-                  <option value="DINE_IN">Dine In</option>
-                  <option value="TAKEAWAY">Takeaway</option>
-                  <option value="DELIVERY">Delivery</option>
-                </select>
-                <input className="input-field" value={tableId} onChange={(e) => setTableId(e.target.value)} placeholder={`Table ID / Number (${tableName})`} />
-                <input className="input-field" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer name" />
-                <input className="input-field" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Customer phone" />
-                <input className="input-field" type="number" min={1} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value || 1))} placeholder="Guest count" />
-                <input className="input-field" value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} placeholder="Order notes" />
+        <div className="pos-redesign">
+          {/* LEFT COLUMN: MENU & FILTERS */}
+          <div className="pos-left-side">
+            <div className="pos-top-filters" style={{ justifyContent: 'space-between' }}>
+              <div>
+                <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Point of Sale (POS)</h1>
+                <div style={{ fontSize: 12, color: 'var(--on-surface-dim)' }}>Dashboard • Pos</div>
               </div>
-
-              <div style={{ flex: '1 1 100%', minWidth: 280, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-                <button
-                  className={`btn btn-sm ${isVoiceListening ? 'btn-danger' : 'btn-secondary'}`}
-                  onClick={isVoiceListening ? stopVoiceListening : startVoiceListening}
-                  disabled={!isVoiceSupported}
-                >
-                  {isVoiceListening ? 'Stop Voice' : 'Start Voice'}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary" style={{ background: 'var(--primary)', border: 'none', borderRadius: 8, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <IconPlus style={{ width: 14, height: 14 }} /> New
                 </button>
-                <span style={{ fontSize: 12, color: 'var(--on-surface-dim)' }}>
-                  {isVoiceSupported
-                    ? isVoiceListening
-                      ? 'Listening... try: "Add 2 butter chicken and 1 coke"'
-                      : 'Voice command ready'
-                    : 'Voice input not supported in this browser'}
-                </span>
-                {voiceTranscript ? (
-                  <span style={{ fontSize: 12, color: 'var(--on-surface-dim)', width: '100%' }}>
-                    Last transcript: "{voiceTranscript}"
-                  </span>
-                ) : null}
+                <button className="btn btn-secondary">QR Menu Orders</button>
+                <button className="btn btn-secondary">Draft List</button>
+                <button className="btn btn-secondary">Table Order</button>
               </div>
             </div>
 
-            <div className="menu-grid">
+            <div className="pos-top-filters" style={{ gap: 16 }}>
+              <div className="pos-search-global" style={{ flex: 1, width: 'auto', borderRadius: 8 }}>
+                <IconSearch style={{ width: 16, height: 16, color: 'var(--on-surface-dim)' }} />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search in products" />
+              </div>
+              <select className="input-field" style={{ width: 180 }} value={activeCategory} onChange={(e) => setActiveCategory(e.target.value)}>
+                <option value="">All Category</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <select className="input-field" style={{ width: 180 }} value={activeBrand} onChange={(e) => setActiveBrand(e.target.value)}>
+                <option value="All">Select Brand</option>
+              </select>
+            </div>
+
+            <div className="category-pill-scroll">
+              <button 
+                className={`category-pill ${activeCategory === '' ? 'active' : ''}`}
+                onClick={() => setActiveCategory('')}
+              >
+                Show All
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  className={`category-pill ${activeCategory === cat.id ? 'active' : ''}`}
+                  onClick={() => setActiveCategory(cat.id)}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="menu-redesign-grid">
               {filteredMenu.map((item) => (
-                <div key={item.id} className={`menu-item-card ${!item.available ? 'unavailable' : ''}`} onClick={() => addToCart(item)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className={`menu-item-veg ${item.isVeg ? 'veg' : 'nonveg'}`} />
-                    {item.aiTags?.includes('bestseller') && <span className="badge badge-warning">Best</span>}
+                <div key={item.id} className="menu-redesign-card" onClick={() => addToCart(item)}>
+                  <div className="menu-redesign-img-placeholder">
+                    {item.isVeg ? '🥗' : '🍔'}
                   </div>
-                  <div className="menu-item-name">{item.name}</div>
-                  <div className="menu-item-price">₹{item.price}</div>
-                  <div className="menu-add-btn">+</div>
+                  <div className="menu-redesign-title">{item.name}</div>
+                  <div className="menu-redesign-price">₹{item.price.toFixed(2)}</div>
+                  <button className="menu-add-btn">+</button>
                 </div>
               ))}
-
               {filteredMenu.length === 0 && (
-                <div style={{ gridColumn: '1 / -1', color: 'var(--on-surface-dim)', textAlign: 'center', padding: '40px 0' }}>
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '64px 0', color: 'var(--on-surface-dim)' }}>
                   No items found
                 </div>
               )}
             </div>
           </div>
 
-          <div className="cart-panel" style={{ width: 440 }}>
+          {/* RIGHT COLUMN: CART & SUMMARY */}
+          <div className="pos-right-side">
+            <div className="pos-top-filters">
+              <div className="pos-search-global" style={{ flex: 1, width: 'auto', borderRadius: 8 }}>
+                <IconSearch style={{ width: 16, height: 16, color: 'var(--on-surface-dim)' }} />
+                <input placeholder="Search in Existing" />
+              </div>
+            </div>
+
+            <div style={{ padding: '0 16px 16px', display: 'flex', gap: 8 }}>
+              <select className="input-field" style={{ flex: 1 }} value={type} onChange={(e) => setType(e.target.value as any)}>
+                <option value="DINE_IN">Select Dining</option>
+                <option value="DINE_IN">Dine In</option>
+                <option value="TAKEAWAY">Takeaway</option>
+                <option value="DELIVERY">Delivery</option>
+              </select>
+              <select className="input-field" style={{ flex: 1 }} value={tableId} onChange={(e) => setTableId(e.target.value)}>
+                <option value="">Select Table</option>
+                <option value="T1">Table 1</option>
+                <option value="T2">Table 2</option>
+              </select>
+            </div>
+
             <div className="cart-header">
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>Order Cart</div>
-                <div style={{ fontSize: 12, color: 'var(--on-surface-dim)' }}>{cart.length} line item(s)</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>📟</span>
+                <span>Order #{selectedOrder?.orderNumber || 'New'}</span>
               </div>
               {cart.length > 0 && (
-                <button className="btn btn-ghost btn-sm" onClick={() => setCart([])}>
-                  <IconX style={{ width: 12, height: 12 }} /> Clear
+                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => setCart([])}>
+                  Clear
                 </button>
               )}
             </div>
 
-            <div className="cart-items" style={{ maxHeight: 290, flex: 'none' }}>
+            <div className="cart-item-list">
               {cart.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--on-surface-dim)', padding: '28px 12px' }}>Add items from menu to begin.</div>
+                <div style={{ textAlign: 'center', color: 'var(--on-surface-dim)', padding: '64px 0', fontSize: 16 }}>
+                  Cart is empty
+                </div>
               ) : (
                 cart.map((item) => (
-                  <div key={item.id} className="cart-item">
-                    <div className="cart-item-row">
-                      <span className={`menu-item-veg ${item.isVeg ? 'veg' : 'nonveg'}`} style={{ width: 12, height: 12 }} />
-                      <span className="cart-item-name">{item.name}</span>
-                      <button className="btn btn-ghost btn-icon" style={{ width: 24, height: 24 }} onClick={() => setCart((prev) => prev.filter((x) => x.id !== item.id))}>
-                        <IconX style={{ width: 12, height: 12 }} />
+                  <div key={item.id} className="cart-item-card">
+                    <div className="cart-item-top">
+                      <div className="cart-item-title">{item.name}</div>
+                      <button className="btn btn-ghost btn-icon" style={{ color: 'var(--danger)', width: 24, height: 24 }} onClick={() => setCart(prev => prev.filter(x => x.id !== item.id))}>
+                        <IconTrash style={{ width: 14, height: 14 }} />
                       </button>
                     </div>
-
-                    <div className="cart-item-row">
+                    <div className="cart-item-price-calc">
+                      ₹{item.price.toFixed(2)} × {item.quantity} = ₹{item.subtotal.toFixed(2)}
+                    </div>
+                    <div className="cart-item-bot">
                       <div className="qty-control">
-                        <button className="qty-btn" onClick={() => updateQuantity(item.id, -1)}>
-                          <IconMinus style={{ width: 10, height: 10 }} />
-                        </button>
+                        <button className="qty-btn" onClick={() => updateQuantity(item.id, -1)}>−</button>
                         <span className="qty-val">{item.quantity}</span>
-                        <button className="qty-btn" onClick={() => updateQuantity(item.id, 1)}>
-                          <IconPlus style={{ width: 10, height: 10 }} />
-                        </button>
+                        <button className="qty-btn" onClick={() => updateQuantity(item.id, 1)}>+</button>
                       </div>
-                      <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700 }}>₹{item.subtotal.toLocaleString('en-IN')}</span>
+                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        📝 Add Notes
+                      </button>
                     </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.7fr', gap: 6 }}>
-                      <input className="input-field" style={{ fontSize: 12, padding: '7px 10px' }} value={item.selectedModifiers} onChange={(e) => patchCartItem(item.id, { selectedModifiers: e.target.value })} placeholder="Modifiers (e.g. 300ml,ExtraSpice)" />
-                      <input className="input-field" style={{ fontSize: 12, padding: '7px 10px' }} type="number" min={0} value={item.modifierTotal} onChange={(e) => patchCartItem(item.id, { modifierTotal: Number(e.target.value || 0) })} placeholder="Modifier ₹" />
-                    </div>
-                    <input className="input-field" style={{ fontSize: 12, padding: '7px 10px' }} value={item.notes} onChange={(e) => patchCartItem(item.id, { notes: e.target.value })} placeholder="Item notes (e.g. Half-cooked)" />
                   </div>
                 ))
               )}
             </div>
 
-            <div style={{ borderTop: '1px solid var(--outline-variant)', padding: '12px 16px', display: 'grid', gap: 8 }}>
-              <div className="cart-total-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                <span style={{ color: 'var(--on-surface-dim)' }}>Draft subtotal</span>
-                <strong>₹{subtotal.toLocaleString('en-IN')}</strong>
+            <div className="cart-summary">
+              <div className="summary-row">
+                <span>Sub total :</span>
+                <strong>₹{subtotal.toFixed(2)}</strong>
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <button className="btn btn-primary btn-full" onClick={createOrder} disabled={loading.creatingOrder || cart.length === 0}>
-                  {loading.creatingOrder ? 'Creating...' : 'Create Order'}
-                </button>
-                <button className="btn btn-secondary btn-full" onClick={addItemsToOrder} disabled={loading.addingItems || !selectedOrderId || cart.length === 0}>
-                  {loading.addingItems ? 'Adding...' : 'Add Items'}
-                </button>
+              <div className="summary-row">
+                <span>Product Discount :</span>
+                <strong>0.00₹</strong>
+              </div>
+              <div className="summary-row">
+                <span>Extra Discount :</span>
+                <strong>0.00₹</strong>
+              </div>
+              <div className="summary-row">
+                <span>Coupon discount :</span>
+                <strong>0.00₹</strong>
+              </div>
+              <div className="summary-row total">
+                <span>Total :</span>
+                <span>₹{subtotal.toFixed(2)}</span>
               </div>
             </div>
 
-            <div style={{ borderTop: '1px solid var(--outline-variant)', padding: 14, overflowY: 'auto' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 700 }}>Order Console</h3>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className={`btn btn-sm ${isLiveSyncOn ? 'btn-success' : 'btn-ghost'}`} onClick={() => setIsLiveSyncOn((v) => !v)}>
-                    {isLiveSyncOn ? 'Live On' : 'Live Off'}
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => void loadOrders()} disabled={loading.loadingOrders}>
-                    {loading.loadingOrders ? 'Refreshing...' : 'Refresh'}
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 6, marginBottom: 8 }}>
-                <select className="input-field" style={{ fontSize: 12, padding: '8px 10px' }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                  <option value="">All status</option>
-                  {ORDER_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <input className="input-field" style={{ fontSize: 12, padding: '8px 10px' }} type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
-                <input className="input-field" style={{ fontSize: 12, padding: '8px 10px' }} placeholder="Table ID" value={filterTable} onChange={(e) => setFilterTable(e.target.value)} />
-              </div>
-              <button className="btn btn-secondary btn-sm btn-full" onClick={() => void loadOrders()}>Apply Filters</button>
-
-              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 156, overflowY: 'auto' }}>
-                {orders.map((order) => (
-                  <button
-                    key={order.id}
-                    className="btn btn-ghost"
-                    style={{
-                      justifyContent: 'space-between',
-                      border: selectedOrderId === order.id ? '1px solid var(--primary)' : '1px solid var(--outline-variant)',
-                      background: selectedOrderId === order.id ? 'var(--primary-glow)' : 'var(--surface-container)',
-                      padding: '8px 10px',
-                      borderRadius: 'var(--radius-md)',
-                    }}
-                    onClick={() => setSelectedOrderId(order.id)}
-                  >
-                    <span style={{ fontSize: 12, fontWeight: 700 }}>{order.orderNumber || order.id.slice(0, 8)}</span>
-                    <span style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>{order.status}</span>
-                  </button>
-                ))}
-                {orders.length === 0 && <div style={{ fontSize: 12, color: 'var(--on-surface-dim)', padding: '6px 2px' }}>No orders found.</div>}
-              </div>
-
-              <div className="card-sm" style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <strong style={{ fontSize: 13 }}>Selected Order</strong>
-                  {selectedOrder?.status && <span className="badge badge-primary">{selectedOrder.status}</span>}
-                </div>
-
-                <div style={{ fontSize: 12, color: 'var(--on-surface-dim)', lineHeight: 1.5 }}>
-                  <div>ID: {selectedOrderId || 'None'}</div>
-                  <div>Customer: {selectedOrder?.customerName || 'Walk-in'}</div>
-                  <div>Items: {selectedOrder?.items?.length || 0}</div>
-                  <div>Bill: ₹{billTotal.toLocaleString('en-IN')}</div>
-                  <div>Paid: ₹{paidAmount.toLocaleString('en-IN')}</div>
-                  <div>Due: ₹{billDue.toLocaleString('en-IN')}</div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 6 }}>
-                  <select className="input-field" style={{ fontSize: 12, padding: '8px 10px' }} value={statusToSet} onChange={(e) => setStatusToSet(e.target.value as (typeof ORDER_STATUSES)[number])}>
-                    {ORDER_STATUSES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                  <button className="btn btn-secondary btn-sm" onClick={updateOrderStatus} disabled={!selectedOrderId || loading.updatingStatus}>
-                    {loading.updatingStatus ? '...' : 'Update'}
-                  </button>
-                </div>
-
-                <div style={{ display: 'grid', gap: 6, borderTop: '1px solid var(--outline-variant)', paddingTop: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>Generate Bill</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                    <input className="input-field" style={{ fontSize: 12, padding: '8px 10px' }} type="number" min={0} value={billDiscount} onChange={(e) => setBillDiscount(Number(e.target.value || 0))} placeholder="Discount amount" />
-                    <select className="input-field" style={{ fontSize: 12, padding: '8px 10px' }} value={billSplitType} onChange={(e) => setBillSplitType(e.target.value)}>
-                      <option value="NONE">No split</option>
-                      <option value="SPLIT">Split</option>
-                      <option value="MERGE">Merge</option>
-                    </select>
-                  </div>
-                  <input className="input-field" style={{ fontSize: 12, padding: '8px 10px' }} value={billDiscountNote} onChange={(e) => setBillDiscountNote(e.target.value)} placeholder="Discount note" />
-                  <button className="btn btn-success btn-sm btn-full" onClick={generateBill} disabled={!selectedOrderId || loading.generatingBill}>
-                    {loading.generatingBill ? 'Generating...' : 'Generate Bill'}
-                  </button>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={openSplitModal} disabled={!selectedOrder?.bill?.id || loading.splittingBill}>
-                      {loading.splittingBill ? 'Splitting...' : 'Manual Split'}
-                    </button>
-                    <button className="btn btn-secondary btn-sm" onClick={mergeChildBills} disabled={!selectedOrder?.bill?.id || loading.mergingBill}>
-                      {loading.mergingBill ? 'Merging...' : 'Merge Bills'}
-                    </button>
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>
-                    Child bills: {(billDetails?.childBills || []).length}
-                  </div>
-                </div>
-
-                <div
-                  style={{ display: 'grid', gap: 6, borderTop: '1px solid var(--outline-variant)', paddingTop: 8 }}
-                  onTouchStart={onBillTouchStart}
-                  onTouchEnd={onBillTouchEnd}
-                >
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>Bill Review</div>
-                  {!swipeHintSeen && (
-                    <div style={{ fontSize: 10, color: 'var(--on-surface-dim)' }}>
-                      Mobile: swipe right to split, swipe left to merge.
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{ marginLeft: 8, padding: '2px 6px', fontSize: 10 }}
-                        onClick={() => setSwipeHintSeen(true)}
-                      >
-                        Hide
-                      </button>
-                    </div>
-                  )}
-                  <div style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', background: 'var(--surface-low)', padding: 8, display: 'grid', gap: 4, fontSize: 11 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><strong>₹{billSubTotal.toLocaleString('en-IN')}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tax</span><strong>₹{billTax.toLocaleString('en-IN')}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Service charge</span><strong>₹{billServiceCharge.toLocaleString('en-IN')}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Discount</span><strong>- ₹{billDiscountAmount.toLocaleString('en-IN')}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Round off</span><strong>₹{billRoundOff.toLocaleString('en-IN')}</strong></div>
-                    <div style={{ height: 1, background: 'var(--outline-variant)', margin: '3px 0' }} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}><span>Total</span><strong>₹{billTotal.toLocaleString('en-IN')}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}><span>Due</span><strong style={{ color: billDue > 0 ? 'var(--danger)' : 'var(--success)' }}>₹{billDue.toLocaleString('en-IN')}</strong></div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={reprintBill} disabled={!selectedOrder?.bill?.id || loading.reprintingBill}>
-                      {loading.reprintingBill ? 'Reprinting...' : 'Reprint Bill'}
-                    </button>
-                    <button className="btn btn-secondary btn-sm" onClick={openEmailModal} disabled={!selectedOrder?.bill?.id || loading.emailingBill}>
-                      {loading.emailingBill ? 'Sending...' : 'Email Bill'}
-                    </button>
-                  </div>
-
-                  <button className="btn btn-ghost btn-sm btn-full" onClick={openBillHistoryModal}>
-                    Bill History (Manager)
-                  </button>
-
-                  <button
-                    className="btn btn-secondary btn-sm btn-full"
-                    onClick={() => router.push('/pos/bills')}
-                    disabled={!(userRole === 'MANAGER' || userRole === 'ADMIN')}
-                  >
-                    Open Full Bill History
-                  </button>
-
-                  <button className="btn btn-primary btn-sm btn-full" onClick={openPaymentModal} disabled={!selectedOrder?.bill?.id || billDue <= 0}>
-                    Open Payment Modal
-                  </button>
-
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>Payments</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 6 }}>
-                    {[
-                      { key: 'CASH', icon: <IconCash style={{ width: 16, height: 16 }} /> },
-                      { key: 'CARD', icon: <IconCard style={{ width: 16, height: 16 }} /> },
-                      { key: 'UPI', icon: <IconQR style={{ width: 16, height: 16 }} /> },
-                    ].map((method) => (
-                      <button
-                        key={method.key}
-                        className={`payment-method-btn ${paymentMethod === method.key ? 'selected' : ''}`}
-                        style={{ padding: '8px 6px', fontSize: 11 }}
-                        onClick={() => setPaymentMethod(method.key as (typeof PAYMENT_METHODS)[number])}
-                      >
-                        {method.icon}
-                        {method.key}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                    <input className="input-field" style={{ fontSize: 12, padding: '8px 10px' }} type="number" min={0} value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="Amount" />
-                    <input className="input-field" style={{ fontSize: 12, padding: '8px 10px' }} value={transactionId} onChange={(e) => setTransactionId(e.target.value)} placeholder="Txn ID (optional)" />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                    <button className="btn btn-primary btn-sm" onClick={payOrderScoped} disabled={!selectedOrderId || !paymentAmount || loading.orderPayment}>
-                      {loading.orderPayment ? '...' : 'Pay /orders/:id'}
-                    </button>
-                    <button className="btn btn-secondary btn-sm" onClick={payTopLevel} disabled={!selectedOrderId || !paymentAmount || loading.topPayment}>
-                      {loading.topPayment ? '...' : 'Pay /payments'}
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gap: 6, borderTop: '1px solid var(--outline-variant)', paddingTop: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700 }}>Audit Trail</div>
-                    <span className="badge badge-warning" style={{ fontSize: 10 }}>{userRole}</span>
-                  </div>
-
-                  {canManageAudit ? (
-                    <>
-                      <input
-                        className="input-field"
-                        style={{ fontSize: 11, padding: '7px 10px' }}
-                        value={auditActionFilter}
-                        onChange={(e) => setAuditActionFilter(e.target.value)}
-                        placeholder="Filter logs by action or text"
-                      />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => void loadAuditLogs()} disabled={!selectedOrderId || loading.loadingLogs}>
-                          {loading.loadingLogs ? 'Loading...' : 'Refresh Logs'}
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => {
-                            const latest = filteredAuditLogs[0];
-                            if (!latest) {
-                              addToast({ icon: 'ℹ️', title: 'No logs', message: 'No audit entries to copy.' });
-                              return;
-                            }
-                            const text = `[${latest.action}] ${latest.description} @ ${new Date(latest.createdAt).toLocaleString('en-IN')}`;
-                            void navigator.clipboard.writeText(text);
-                            addToast({ icon: '📋', title: 'Copied', message: 'Latest audit entry copied.' });
-                          }}
-                        >
-                          Copy Latest
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>
-                      Read-only view. Manager/Admin role required for audit controls.
-                    </div>
-                  )}
-
-                  <div style={{ maxHeight: 140, overflowY: 'auto', display: 'grid', gap: 6 }}>
-                    {filteredAuditLogs.map((log) => (
-                      <div key={log.id} style={{ border: '1px solid var(--outline-variant)', background: 'var(--surface-low)', borderRadius: 'var(--radius-md)', padding: '6px 8px' }}>
-                        <div style={{ fontSize: 11, fontWeight: 700 }}>{log.action}</div>
-                        <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>{log.description}</div>
-                        <div style={{ fontSize: 10, color: 'var(--on-surface-dim)', marginTop: 2 }}>
-                          {new Date(log.createdAt).toLocaleString('en-IN')} {log.user?.name ? `• ${log.user.name}` : ''}
-                        </div>
-                      </div>
-                    ))}
-                    {filteredAuditLogs.length === 0 && <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>No logs to show.</div>}
-                  </div>
-                </div>
-              </div>
+            <div className="cart-actions-grid">
+              <button className="btn btn-col-1" style={{ height: 44, borderRadius: 8, fontWeight: 700 }} onClick={createOrder}>Create Order</button>
+              <button className="btn btn-col-2" style={{ height: 44, borderRadius: 8, fontWeight: 700 }} onClick={handleDraft}>Draft</button>
+              <button className="btn btn-col-3" style={{ height: 44, borderRadius: 8, fontWeight: 700 }} onClick={handleBillAndPayment}>Bill & Payment</button>
+              <button className="btn btn-col-4" style={{ height: 44, borderRadius: 8, fontWeight: 700 }} onClick={handleBillAndPrint}>Bill & Print</button>
             </div>
           </div>
         </div>
       </div>
+
 
       {isSplitModalOpen && selectedOrder && (
         <div
@@ -1919,7 +1809,7 @@ function OrderEntryContent() {
                 return (
                   <div key={item.id} style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', padding: 10, display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', background: 'var(--surface-low)' }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{item.menuItem?.name || `Item ${item.id.slice(0, 8)}`}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{item.menuItem?.name || `Item ${item.id?.slice(0, 8)}`}</div>
                       <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>Qty: {item.quantity}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -2161,7 +2051,7 @@ function OrderEntryContent() {
                   <div key={bill.id} style={{ border: '1px solid var(--outline-variant)', background: 'var(--surface-low)', borderRadius: 'var(--radius-lg)', padding: 10, display: 'grid', gap: 6 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 800 }}>{bill.billNumber || bill.id.slice(0, 8)}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800 }}>{bill.billNumber || bill.id?.slice(0, 8) || 'N/A'}</div>
                         <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>
                           {bill.order?.orderNumber || bill.order?.id || 'Order unavailable'}
                           {bill.order?.table?.number ? ` • Table ${bill.order.table.number}` : ''}
@@ -2188,7 +2078,7 @@ function OrderEntryContent() {
                           if (bill.order?.id) {
                             setSelectedOrderId(bill.order.id);
                             setIsBillHistoryModalOpen(false);
-                            addToast({ icon: '🧾', title: 'Order selected', message: `Loaded ${bill.order.orderNumber || bill.order.id.slice(0, 8)}` });
+                            addToast({ icon: '🧾', title: 'Order selected', message: `Loaded ${bill.order.orderNumber || bill.order.id?.slice(0, 8)}` });
                           } else {
                             addToast({ icon: '⚠️', title: 'Order missing', message: 'This bill is not linked to a retrievable order.' });
                           }
@@ -2260,7 +2150,7 @@ function OrderEntryContent() {
                 <div className="thermal-divider" />
                 <div className="thermal-print-items">
                   {(reprintPayload?.bill?.order?.items || selectedOrder?.items || []).map((item) => {
-                    const name = item.menuItem?.name || `Item ${item.id.slice(0, 6)}`;
+                    const name = item.menuItem?.name || `Item ${item.id?.slice(0, 6)}`;
                     const quantity = Number(item.quantity || 0);
                     const unit = Number(item.priceAtOrder || 0) + Number(item.modifierTotal || 0);
                     const amount = Math.max(quantity * unit, 0);

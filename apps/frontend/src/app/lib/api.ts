@@ -1,5 +1,5 @@
 const configuredApiBase = (process.env.NEXT_PUBLIC_API_URL || '').trim();
-export const API_BASE = configuredApiBase || 'http://localhost:3333/api';
+export const API_BASE = configuredApiBase || 'http://localhost:3334/api';
 
 export interface StoredUser {
   id?: string;
@@ -23,13 +23,13 @@ function isSerializableBody(body: unknown) {
 
 function clearInvalidSession() {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem('auth.token');
-  localStorage.removeItem('auth.user');
+  sessionStorage.removeItem('auth.token');
+  sessionStorage.removeItem('auth.user');
 }
 
 export async function apiRequest<T>(path: string, init: Omit<RequestInit, 'body'> & { body?: unknown } = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth.token') : null;
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem('auth.token') : null;
 
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
@@ -84,7 +84,7 @@ export async function apiRequest<T>(path: string, init: Omit<RequestInit, 'body'
 
 export function getStoredUser(): StoredUser | null {
   if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem('auth.user');
+  const raw = sessionStorage.getItem('auth.user');
   if (!raw) return null;
 
   try {

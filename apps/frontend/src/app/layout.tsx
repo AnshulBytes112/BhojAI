@@ -1,6 +1,7 @@
 import './global.css';
 import type { Metadata } from 'next';
 import { ServiceWorkerProvider } from './components/service-worker-provider';
+import { AuthGuard } from './components/AuthGuard';
 
 export const metadata: Metadata = {
   title: 'BhojAI — Restaurant POS',
@@ -20,7 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ServiceWorkerProvider />
-        {children}
+        <AuthGuard>
+          {children}
+        </AuthGuard>
       </body>
     </html>
   );

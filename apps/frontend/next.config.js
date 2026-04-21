@@ -17,8 +17,6 @@ const nextConfig = {
     unoptimized: true,
   },
 
-  swcMinify: true,
-
   typescript: {
     ignoreBuildErrors: false,
   },
@@ -26,8 +24,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-
-  productionBrowserSourceMaps: false,
 };
 
 module.exports = nextConfig;

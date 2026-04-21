@@ -84,7 +84,7 @@ export default function BillsPage() {
       if (bills.length > 0 && !selectedBill) setSelectedBill(bills[0]);
     } catch (err: any) {
       console.error('Failed to fetch bills:', err);
-      addToast({ title: 'Error', message: 'Failed to fetch real bill data. Showing empty list.', type: 'error' });
+      addToast({ icon: '❌', title: 'Error', message: 'Failed to fetch real bill data. Showing empty list.' });
       setAllBills([]);
     } finally {
       setLoading(false);

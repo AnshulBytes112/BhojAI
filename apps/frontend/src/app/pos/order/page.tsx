@@ -56,7 +56,13 @@ interface OrderListItem {
   scheduledAt?: string | null;
   diningArea?: string | null;
   table?: { id: string; number: string; label?: string | null } | null;
-  items: Array<{ id: string; quantity: number; menuItem?: { name?: string | null } | null }>;
+  items: Array<{
+    id: string;
+    quantity: number;
+    priceAtOrder?: number;
+    modifierTotal?: number;
+    menuItem?: { name?: string | null } | null;
+  }>;
   bill?: {
     id: string;
     subTotal?: number;

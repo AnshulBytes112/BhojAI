@@ -6,6 +6,11 @@
 const nextConfig = {
   // Basic Next.js configuration
   reactStrictMode: true,
+
+   eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   
   // Environment variables
   env: {

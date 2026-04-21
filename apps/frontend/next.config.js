@@ -22,6 +22,8 @@ const nextConfig = {
     isrMemoryCacheSize: 0,
   },
 
+  swcMinify: true,
+
   typescript: {
     ignoreBuildErrors: false,
   },
@@ -29,6 +31,8 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+
+  productionBrowserSourceMaps: false,
 };
 
 module.exports = nextConfig;

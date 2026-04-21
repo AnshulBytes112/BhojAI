@@ -1,8 +1,10 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response, Request } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../../lib/prisma';
-import { authenticate, AuthRequest } from '../../middleware/auth';
+import { authenticate, AuthRequest, authorizeRoles } from '../../middleware/auth';
+import { requirePermission, Permission } from '../../middleware/rbac';
+import { UserRole } from '../../lib/rbac';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'bhojai_secret';
@@ -131,12 +133,20 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/auth/register-staff (admin only)
-router.post('/register-staff', authenticate, async (req: AuthRequest, res: Response) => {
+// POST /api/auth/register-staff (admin/manager only)
+router.post('/register-staff', 
+  authenticate, 
+  requirePermission(Permission.CREATE_USER),
+  async (req: AuthRequest, res: Response) => {
   try {
     const { name, username, password, role, pin } = req.body;
-    if (req.user!.role !== 'ADMIN' && req.user!.role !== 'MANAGER') {
-      return res.status(403).json({ error: 'Forbidden' });
+    
+    // Validate role
+    if (role && !Object.values(UserRole).includes(role as UserRole)) {
+      return res.status(400).json({ 
+        error: 'Invalid role',
+        availableRoles: Object.values(UserRole)
+      });
     }
 
     const existing = await prisma.user.findUnique({ where: { username } });
@@ -150,7 +160,7 @@ router.post('/register-staff', authenticate, async (req: AuthRequest, res: Respo
         name,
         username,
         passwordHash,
-        role: role || 'WAITER',
+        role: (role as UserRole) || UserRole.WAITER,
         pin,
         restaurantId: req.user!.restaurantId,
       },
@@ -161,8 +171,10 @@ router.post('/register-staff', authenticate, async (req: AuthRequest, res: Respo
       name: user.name,
       username: user.username,
       role: user.role,
+      createdAt: user.createdAt,
     });
   } catch (err) {
+    console.error('Registration error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

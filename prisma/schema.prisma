@@ -35,14 +35,28 @@ model User {
   username     String     @unique
   passwordHash String
   name         String
-  role         String     @default("WAITER")
+  email        String?    @unique
+  phone        String?
+  role         UserRole   @default(WAITER)
   pin          String?
+  isActive     Boolean    @default(true)
+  lastLoginAt  DateTime?
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   orders       Order[]    @relation("OrderWaiter")
   auditLogs    AuditLog[]
+  createdOrders Order[]    @relation("OrderCreator")
+  updatedOrders Order[]    @relation("OrderUpdater")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  WAITER
+  CASHIER
+  KITCHEN
 }
 
 model Category {
@@ -141,6 +155,10 @@ model Order {
   table         RestaurantTable? @relation(fields: [tableId], references: [id])
   waiterId      String
   waiter        User             @relation("OrderWaiter", fields: [waiterId], references: [id])
+  createdById   String?
+  createdBy     User?            @relation("OrderCreator", fields: [createdById], references: [id])
+  updatedById   String?
+  updatedBy     User?            @relation("OrderUpdater", fields: [updatedById], references: [id])
   restaurantId  String
   restaurant    Restaurant       @relation(fields: [restaurantId], references: [id])
   items         OrderItem[]

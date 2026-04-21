@@ -1,13 +1,16 @@
 import { Router, Response } from 'express';
 import prisma from '../../lib/prisma';
-import { authenticate, authorize, AuthRequest } from '../../middleware/auth';
+import { authenticate, AuthRequest } from '../../middleware/auth';
+import { requirePermission, Permission } from '../../middleware/rbac';
 import { generateBill, recalculateBill } from './billing.service';
 
 const router = Router();
 router.use(authenticate);
 
 // GET /api/orders  - list orders for this restaurant
-router.get('/', async (req: AuthRequest, res: Response) => {
+router.get('/', 
+  requirePermission(Permission.READ_ORDERS),
+  async (req: AuthRequest, res: Response) => {
   const { status, tableId, date, includeReservations } = req.query;
   const where: Record<string, unknown> = { restaurantId: req.user!.restaurantId };
   if (status) where['status'] = String(status);
@@ -39,7 +42,9 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 });
 
 // GET /api/orders/:id
-router.get('/:id', async (req: AuthRequest, res: Response) => {
+router.get('/:id', 
+  requirePermission(Permission.READ_ORDERS),
+  async (req: AuthRequest, res: Response) => {
   const order = await prisma.order.findFirst({
     where: { id: req.params.id, restaurantId: req.user!.restaurantId },
     include: {
@@ -55,7 +60,9 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/orders  - Create new order
-router.post('/', async (req: AuthRequest, res: Response) => {
+router.post('/', 
+  requirePermission(Permission.CREATE_ORDER),
+  async (req: AuthRequest, res: Response) => {
   try {
     const { tableId, type, customerName, customerPhone, guestCount, notes, items } = req.body;
     const orderType = type || 'DINE_IN';
@@ -333,8 +340,10 @@ router.patch('/:id/status', async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/orders/:id/bill  - Generate bill
-router.post('/:id/bill', async (req: AuthRequest, res: Response) => {
-  try {
+router.post('/:id/bill', 
+  requirePermission(Permission.CREATE_BILL),
+  async (req: AuthRequest, res: Response) => {
+    try {
     const order = await prisma.order.findFirst({
       where: { id: req.params.id, restaurantId: req.user!.restaurantId },
       include: {

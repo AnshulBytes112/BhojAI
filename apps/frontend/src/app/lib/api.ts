@@ -44,7 +44,6 @@ export async function apiRequest<T>(path: string, init: Omit<RequestInit, 'body'
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
-    cache: 'no-store',
     ...init,
     headers,
     body,

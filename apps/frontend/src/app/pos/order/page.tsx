@@ -389,7 +389,7 @@ function OrderEntryContent() {
         headers.set('Authorization', `Bearer ${token}`);
       }
 
-      const res = await fetch(`${API}${path}`, { cache: 'no-store', ...init, headers });
+      const res = await fetch(`${API}${path}`, { ...init, headers });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         if (res.status === 401 && typeof window !== 'undefined') {

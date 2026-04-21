@@ -27,13 +27,8 @@ function ReceiptContent() {
       setItems(DEMO_ITEMS);
       return;
     }
-<<<<<<< HEAD
-    const token = sessionStorage.getItem('auth.token') || '';
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333/api';
-=======
     const token = localStorage.getItem('auth.token') || '';
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334/api';
->>>>>>> d581031 (first phase almost done)
     fetch(`${API_BASE}/orders/${orderId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     })

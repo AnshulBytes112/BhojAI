@@ -77,16 +77,7 @@ export default function BillsPage() {
   const fetchBills = async () => {
     setLoading(true);
     try {
-<<<<<<< HEAD
-      const token = sessionStorage.getItem('auth.token') || '';
-      const res = await fetch(`${API}/bills`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const data = await res.json().catch(() => []);
-      if (!res.ok) throw new Error(data?.error || 'Failed');
-=======
       const data = await apiRequest('/bills');
->>>>>>> d581031 (first phase almost done)
       const bills = Array.isArray(data) ? data : [];
       
       setAllBills(bills);

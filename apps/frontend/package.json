@@ -1,0 +1,24 @@
+{
+  "name": "bhojai-frontend",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd ../.. && npm run build:frontend",
+    "dev": "cd ../.. && npm run dev:frontend",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "~16.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "axios": "^1.6.0",
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.9",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "typescript": "~5.9.2"
+  }
+}

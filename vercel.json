@@ -1,15 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "npm run build:frontend",
-  "outputDirectory": "dist/apps/frontend/.next",
-  "installCommand": "npm install",
   "builds": [
     {
       "src": "apps/frontend/package.json",
       "use": "@vercel/next"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }

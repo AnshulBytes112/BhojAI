@@ -1663,9 +1663,6 @@ function OrderEntryContent() {
             </div>
           </div>
 
-<<<<<<< HEAD
-          <div className="cart-panel" style={{ width: 440 }}>
-=======
           {/* RIGHT COLUMN: Cart Panel */}
           <div className="pos-right-side">
             <div className="pos-top-filters">
@@ -1702,8 +1699,6 @@ function OrderEntryContent() {
                 placeholder="Schedule Order (Optional)"
               />
             </div>
-
->>>>>>> d581031 (first phase almost done)
             <div className="cart-header">
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>Order Cart</div>

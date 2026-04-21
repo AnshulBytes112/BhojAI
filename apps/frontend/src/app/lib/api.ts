@@ -1,15 +1,5 @@
 const configuredApiBase = (process.env.NEXT_PUBLIC_API_URL || '').trim();
-<<<<<<< HEAD
-
-let defaultApi = 'http://localhost:3333/api';
-if (typeof window !== 'undefined') {
-  defaultApi = `http://${window.location.hostname}:3333/api`;
-}
-
-export const API_BASE = configuredApiBase || defaultApi;
-=======
 export const API_BASE = configuredApiBase || 'http://localhost:3334/api';
->>>>>>> d581031 (first phase almost done)
 
 export interface StoredUser {
   id?: string;
@@ -54,6 +44,7 @@ export async function apiRequest<T>(path: string, init: Omit<RequestInit, 'body'
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
+    cache: 'no-store',
     ...init,
     headers,
     body,

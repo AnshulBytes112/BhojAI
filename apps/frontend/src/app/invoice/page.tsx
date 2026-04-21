@@ -98,6 +98,7 @@ function InvoiceContent() {
       setItems([]);
       return;
     }
+    
     const fetchOrderDetails = async () => {
       try {
         const data = await apiRequest(`/orders/${orderId}`) as OrderData;
@@ -176,10 +177,13 @@ function InvoiceContent() {
       
       alert(`Payment of Rs.${paymentAmount.toFixed(2)} successful via ${paymentMethod}! Invoice generated.`);
       
-      // Short delay to ensure backend state is committed before dashboard refresh
+      // Refresh the bills list to show the payment in the correct list
       setTimeout(() => {
-        router.push(`/invoice/receipt?orderId=${orderId}`);
-      }, 500);
+        // Fetch updated bills to refresh the lists
+        fetchPendingBills();
+        // Redirect to bills page to show the updated payment status
+        router.push('/pos/bills');
+      }, 1000);
       
     } catch (err: any) {
       console.error('Payment failed:', err);

@@ -2667,3 +2667,67 @@ ul, ol { list-style: none; }
 .btn-col-2 { background: #fff; color: #1f1208; border: 1px solid var(--outline-variant); }
 .btn-col-3 { background: var(--primary); color: #fff; }
 .btn-col-4 { background: var(--success); color: #fff; }
+/* Header and Pills for POS Redesign */
+.pos-header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--outline-variant);
+}
+
+.pos-header-left { display: flex; align-items: center; gap: 32px; }
+.pos-header-right { display: flex; align-items: center; gap: 20px; }
+
+.header-pills { display: flex; gap: 12px; }
+.header-pill {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 18px;
+  background: var(--surface-low);
+  border: 1px solid var(--outline-variant);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-surface);
+}
+
+.header-pill.active { background: #fff8f1; border-color: rgba(229, 139, 18, 0.2); }
+.header-pill.admin { background: #fdf2f2; border-color: #fecaca; color: #991b1b; }
+
+.pos-search-global {
+  width: 280px;
+  height: 40px;
+  background: var(--surface-low);
+  border: 1px solid var(--outline-variant);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+}
+.pos-search-global input {
+  background: none;
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 13px;
+}
+
+.user-profile-group { display: flex; gap: 8px; }
+.user-profile-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--outline-variant);
+}

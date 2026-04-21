@@ -94,33 +94,6 @@ export default function OrdersPage() {
     }, 4200);
   };
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth.token') || '' : '';
-
-  const callApi = async (path: string, init?: RequestInit) => {
-    const headers = new Headers(init?.headers || {});
-    if (!headers.has('Content-Type') && init?.body) {
-      headers.set('Content-Type', 'application/json');
-    }
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
-    }
-
-    const res = await fetch(`${API}${path}`, { ...init, headers });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      if (res.status === 401 && typeof window !== 'undefined') {
-        localStorage.removeItem('auth.token');
-        localStorage.removeItem('auth.user');
-        if (window.location.pathname !== '/login') {
-          window.location.assign('/login');
-        }
-      }
-      const message = data?.error || data?.message || `Request failed (${res.status})`;
-      throw new Error(message);
-    }
-    return data;
-  };
-
   const loadOrders = async () => {
     setLoading(true);
     try {
@@ -129,7 +102,7 @@ export default function OrdersPage() {
       if (typeFilter) qs.set('type', typeFilter);
       if (dateFilter) qs.set('date', dateFilter);
       
-      const data = await callApi(`/orders${qs.toString() ? `?${qs.toString()}` : ''}`);
+      const data = await apiRequest(`/orders${qs.toString() ? `?${qs.toString()}` : ''}`);
       setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       addToast({ icon: ' ', title: 'Failed to load orders', message: (err as Error).message });
@@ -160,9 +133,9 @@ export default function OrdersPage() {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      await callApi(`/orders/${orderId}/status`, {
+      await apiRequest(`/orders/${orderId}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: newStatus })
+        body: { status: newStatus }
       });
       addToast({ icon: ' ', title: 'Status updated', message: 'Order status updated successfully' });
       loadOrders();

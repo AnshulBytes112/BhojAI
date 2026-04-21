@@ -1,4 +1,4 @@
-'use client';
+  'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -323,9 +323,6 @@ function TablesPage() {
     const token = localStorage.getItem('auth.token');
     
     try {
-<<<<<<< HEAD
-      const token = sessionStorage.getItem('auth.token');
-=======
       console.log('Creating table:', { tableName, token: token ? 'Present' : 'Missing', API });
       
       const requestBody = {
@@ -337,7 +334,6 @@ function TablesPage() {
       
       console.log('Request payload:', requestBody);
       
->>>>>>> d581031 (first phase almost done)
       const res = await fetch(`${API}/tables`, {
         method: 'POST',
         headers: {

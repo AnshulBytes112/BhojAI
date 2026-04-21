@@ -63,9 +63,11 @@ export default function BillsPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [allBills, setAllBills] = useState<BillItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [lastBillCount, setLastBillCount] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('All Payment Types');
+  const [billStatusFilter, setBillStatusFilter] = useState<'unpaid' | 'paid' | 'all'>('paid');
   const [selectedBill, setSelectedBill] = useState<BillItem | null>(null);
 
   const addToast = (t: Omit<ToastItem, 'id'>) => {
@@ -80,7 +82,35 @@ export default function BillsPage() {
       const data = await apiRequest('/bills');
       const bills = Array.isArray(data) ? data : [];
       
+      // Debug: Log bills data
+      console.log('Fetched bills:', bills);
+      console.log('Paid bills:', bills.filter(b => b.isPaid));
+      console.log('Unpaid bills:', bills.filter(b => !b.isPaid));
+      
+      // Check for new bills
+      if (lastBillCount > 0 && bills.length > lastBillCount) {
+        const newBillsCount = bills.length - lastBillCount;
+        const newPaidBills = bills.slice(0, newBillsCount).filter(b => b.isPaid).length;
+        const newUnpaidBills = bills.slice(0, newBillsCount).filter(b => !b.isPaid).length;
+        
+        if (newPaidBills > 0) {
+          addToast({ 
+            icon: '??', 
+            title: 'New Payment Received', 
+            message: `${newPaidBills} new bill${newPaidBills > 1 ? 's' : ''} paid` 
+          });
+        }
+        if (newUnpaidBills > 0) {
+          addToast({ 
+            icon: '??', 
+            title: 'New Bill Created', 
+            message: `${newUnpaidBills} new bill${newUnpaidBills > 1 ? 's' : ''} created` 
+          });
+        }
+      }
+      
       setAllBills(bills);
+      setLastBillCount(bills.length);
       if (bills.length > 0 && !selectedBill) setSelectedBill(bills[0]);
     } catch (err: any) {
       console.error('Failed to fetch bills:', err);
@@ -91,9 +121,26 @@ export default function BillsPage() {
     }
   };
 
-  useEffect(() => { void fetchBills(); }, []);
+  useEffect(() => { 
+    void fetchBills(); 
+    // Set up periodic refresh every 30 seconds
+    const interval = setInterval(fetchBills, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const filtered = useMemo(() => {
+  // Also refresh when page gains focus (user switches back to this tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchBills();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // First filter by search terms only
+  const searchFiltered = useMemo(() => {
     const q = search.toLowerCase();
     return allBills
       .filter(b => {
@@ -101,20 +148,54 @@ export default function BillsPage() {
         const ord = (b.order?.orderNumber || '').toLowerCase();
         const cust = (b.order?.customerName || '').toLowerCase();
         const matchSearch = !q || inv.includes(q) || ord.includes(q) || cust.includes(q);
-        
-        const payMethod = b.payments?.[0]?.method || 'CASH';
-        const matchPay = paymentFilter === 'All Payment Types' || payMethod === paymentFilter.toUpperCase();
-
-        return matchSearch && matchPay;
+        return matchSearch;
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [allBills, search, paymentFilter]);
+  }, [allBills, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Then apply bill status filtering
+  const statusFiltered = useMemo(() => {
+    if (billStatusFilter === 'unpaid') {
+      return searchFiltered.filter(b => !b.isPaid);
+    } else if (billStatusFilter === 'paid') {
+      return searchFiltered.filter(b => b.isPaid);
+    } else {
+      return searchFiltered; // 'all'
+    }
+  }, [searchFiltered, billStatusFilter]);
+
+  // Finally apply payment method filtering (only if not showing all bills)
+  const filtered = useMemo(() => {
+    if (paymentFilter === 'All Payment Types') {
+      return statusFiltered;
+    }
+    return statusFiltered.filter(b => {
+      const payMethod = b.payments?.[0]?.method || 'CASH';
+      return payMethod === paymentFilter.toUpperCase();
+    });
+  }, [statusFiltered, paymentFilter]);
+
+  // For debugging - show counts before payment method filtering
+  const allPaidBills = allBills.filter(b => b.isPaid);
+  const allUnpaidBills = allBills.filter(b => !b.isPaid);
+
+  // Debug: Log filtering results
+  console.log('All bills count:', allBills.length);
+  console.log('All paid bills count:', allPaidBills.length);
+  console.log('All unpaid bills count:', allUnpaidBills.length);
+  console.log('After search filter:', searchFiltered.length);
+  console.log('After status filter:', statusFiltered.length);
+  console.log('Final filtered bills:', filtered.length);
+  console.log('Current filter:', billStatusFilter);
+  console.log('Payment filter:', paymentFilter);
+
+  // Use the final filtered bills for display
+  const displayBills = filtered;
+  const totalPages = Math.max(1, Math.ceil(displayBills.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const paged = displayBills.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  useEffect(() => setPage(1), [search, paymentFilter]);
+  useEffect(() => setPage(1), [search, paymentFilter, billStatusFilter]);
 
   const exportExcel = () => {
     const rows = filtered.map(b => ({
@@ -224,11 +305,53 @@ export default function BillsPage() {
                 </select>
                 <span style={{ color: '#aaa', fontSize: 10, marginLeft: -16, pointerEvents: 'none' }}>▼</span>
               </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e8e5de', borderRadius: 8, padding: '0 16px', height: 42, cursor: 'pointer' }}>
+                <span style={{ color: '#aaa', fontSize: 14 }}>📝</span>
+                <select 
+                  value={billStatusFilter} 
+                  onChange={e => setBillStatusFilter(e.target.value as any)}
+                  style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 13, color: '#333', cursor: 'pointer', WebkitAppearance: 'none', paddingRight: 16 }}
+                >
+                  <option value="unpaid">Unpaid Bills</option>
+                  <option value="paid">Paid Bills</option>
+                  <option value="all">All Bills</option>
+                </select>
+                <span style={{ color: '#aaa', fontSize: 10, marginLeft: -16, pointerEvents: 'none' }}>▼</span>
+              </div>
             </div>
 
             {/* Results count & Pagination Top */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, fontSize: 13, fontWeight: 600, color: '#555' }}>
               <span>BILL / ORDER <span style={{ color: '#aaa' }}>•</span> {filtered.length} payments <span style={{ color: '#aaa' }}>•</span> Page {safePage} of {totalPages}</span>
+              <button 
+                onClick={() => fetchBills()} 
+                disabled={loading}
+                style={{ 
+                  background: loading ? '#ccc' : '#ea580c', 
+                  color: '#fff', 
+                  border: 'none', 
+                  padding: '4px 12px', 
+                  borderRadius: 6, 
+                  fontSize: 12, 
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  marginLeft: 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+              >
+                {loading ? (
+                  <>
+                    <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>??</span>
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    ?? Refresh
+                  </>
+                )}
+              </button>
             </div>
 
             {/* Table Container */}
@@ -382,11 +505,13 @@ export default function BillsPage() {
                   </div>
                 </div>
 
-                {/* Invoice Attachment */}
-                <div onClick={handleViewInvoice} style={{ background: '#fcfbf9', border: '1px solid #f0ede8', borderRadius: 8, padding: '12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='#f6f4f1'} onMouseLeave={e => e.currentTarget.style.background='#fcfbf9'}>
-                  <span style={{ color: '#f97316' }}>📄</span>
-                  <div style={{ fontSize: 13, color: '#0056b3', textDecoration: 'underline' }}>Invoice {generateInvoiceNumber(selectedBill)}</div>
-                </div>
+                {/* Invoice Attachment - Only show for paid bills */}
+                {selectedBill.isPaid && (
+                  <div onClick={handleViewInvoice} style={{ background: '#fcfbf9', border: '1px solid #f0ede8', borderRadius: 8, padding: '12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='#f6f4f1'} onMouseLeave={e => e.currentTarget.style.background='#fcfbf9'}>
+                    <span style={{ color: '#f97316' }}>??</span>
+                    <div style={{ fontSize: 13, color: '#0056b3', textDecoration: 'underline' }}>Invoice {generateInvoiceNumber(selectedBill)}</div>
+                  </div>
+                )}
 
                 <div style={{ height: 1, background: '#f0ede8', margin: '0 -20px 24px' }} />
 

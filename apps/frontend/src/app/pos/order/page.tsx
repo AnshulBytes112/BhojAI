@@ -29,6 +29,7 @@ interface MenuItem {
   categoryId: string;
   isVeg: boolean;
   aiTags?: string;
+  imageUrl?: string;
 }
 
 interface Category {
@@ -56,7 +57,7 @@ interface OrderListItem {
   scheduledAt?: string | null;
   diningArea?: string | null;
   table?: { id: string; number: string; label?: string | null } | null;
-  items: Array<{ id: string; quantity: number; menuItem?: { name?: string | null } | null }>;
+  items: Array<{ id: string; quantity: number; priceAtOrder?: number; modifierTotal?: number; menuItem?: { name?: string | null } | null }>;
   bill?: {
     id: string;
     subTotal?: number;
@@ -240,6 +241,8 @@ function OrderEntryContent() {
 
   const [categories, setCategories] = useState<Category[]>(DEMO_CATEGORIES);
   const [activeCategory, setActiveCategory] = useState(DEMO_CATEGORIES[0]?.id || '');
+  const [menuLoading, setMenuLoading] = useState(false);
+  const [lastMenuSync, setLastMenuSync] = useState<Date | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -325,48 +328,7 @@ function OrderEntryContent() {
     loadingBillsHistory: false,
   });
 
-  useEffect(() => {
-    async function loadMenu() {
-      try {
-        const [catsData, itemsData] = await Promise.all([
-          apiRequest<any[]>('/menu/categories'),
-          apiRequest<any[]>('/menu/items'),
-        ]);
 
-        if (catsData && catsData.length) {
-          const itemsByCat = new Map<string, any[]>();
-          for (const item of itemsData || []) {
-            const bucket = itemsByCat.get(item.categoryId) || [];
-            bucket.push({
-              id: item.id,
-              name: item.name,
-              price: item.price,
-              available: item.isAvailable ?? true,
-              categoryId: item.categoryId,
-              isVeg: item.dietaryLabel === 'VEG' || item.dietaryLabel === 'VEGAN',
-              aiTags: item.aiTags
-            });
-            itemsByCat.set(item.categoryId, bucket);
-          }
-
-          const normalized = catsData.map((category) => ({
-            id: category.id,
-            name: category.name,
-            emoji: '🍽️',
-            items: itemsByCat.get(category.id) || [],
-          }));
-
-          setCategories(normalized);
-          setActiveCategory((current) =>
-            (current === DEMO_CATEGORIES[0]?.id && normalized.length > 0) ? normalized[0].id : current
-          );
-        }
-      } catch (e) {
-        // Fallback to DEMO_CATEGORIES
-      }
-    }
-    loadMenu();
-  }, []);
 
   const addToast = useCallback((toast: Omit<ToastItem, 'id'>) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -376,16 +338,15 @@ function OrderEntryContent() {
     }, 4200);
   }, []);
 
-  const token = typeof window !== 'undefined' ? sessionStorage.getItem('auth.token') || '' : '';
-
   const callApi = useCallback(
     async (path: string, init?: RequestInit) => {
+      const currentToken = typeof window !== 'undefined' ? sessionStorage.getItem('auth.token') || '' : '';
       const headers = new Headers(init?.headers || {});
       if (!headers.has('Content-Type') && init?.body) {
         headers.set('Content-Type', 'application/json');
       }
-      if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
+      if (currentToken) {
+        headers.set('Authorization', `Bearer ${currentToken}`);
       }
 
       const res = await fetch(`${API}${path}`, { ...init, headers });
@@ -404,7 +365,7 @@ function OrderEntryContent() {
       }
       return data;
     },
-    [token]
+    []
   );
 
   useEffect(() => {
@@ -433,7 +394,8 @@ function OrderEntryContent() {
     setSelectedTableInStore(tableId || null);
   }, [setSelectedTableInStore, tableId]);
 
-  const loadMenu = useCallback(async () => {
+  const loadMenu = useCallback(async (silent = false) => {
+    if (!silent) setMenuLoading(true);
     try {
       const [categoriesData, menuItemsData] = await Promise.all([callApi('/menu/categories'), callApi('/menu/items')]);
       const itemsByCategory = new Map<string, any[]>();
@@ -460,17 +422,28 @@ function OrderEntryContent() {
           categoryId: cat.id,
           isVeg: (item.dietaryLabel || '').toUpperCase().includes('VEG'),
           aiTags: item.aiTags || '',
+          imageUrl: item.imageUrl || '',
         })),
       }));
 
       if (normalized.length > 0) {
         setCategories(normalized);
         setActiveCategory(normalized[0].id);
+        setLastMenuSync(new Date());
       }
     } catch {
-      addToast({ icon: '🧪', title: 'Demo menu mode', message: 'Using local menu items.' });
+      if (!silent) addToast({ icon: '🧪', title: 'Demo menu mode', message: 'Using local menu items.' });
+    } finally {
+      setMenuLoading(false);
     }
   }, [addToast, callApi]);
+
+  // Initial load + auto-refresh menu every 60 seconds
+  useEffect(() => {
+    loadMenu(false);
+    const interval = setInterval(() => loadMenu(true), 60000);
+    return () => clearInterval(interval);
+  }, [loadMenu]);
 
   const loadOrders = useCallback(async () => {
     setLoading((s) => ({ ...s, loadingOrders: true }));
@@ -1137,6 +1110,7 @@ function OrderEntryContent() {
       addToast({ icon: '✅', title: 'Order created', message: `Order ${displayId} created.` });
 
       await loadOrders();
+      router.push(`/invoice?orderId=${created.id}`);
     } catch (err) {
       addToast({ icon: '❌', title: 'Create order failed', message: (err as Error).message });
     } finally {
@@ -1565,9 +1539,25 @@ function OrderEntryContent() {
           title="Order Management"
           subtitle={selectedOrderId ? `Selected: ${selectedOrder?.orderNumber || selectedOrderId}` : 'Create and control orders'}
           actions={
-            <button className="btn btn-ghost btn-sm" onClick={() => router.push('/pos/tables')}>
-              ← Tables
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {lastMenuSync && (
+                <span style={{ fontSize: 11, color: 'var(--on-surface-dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                  Menu synced {lastMenuSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => loadMenu(false)}
+                disabled={menuLoading}
+                title="Refresh menu from inventory"
+              >
+                {menuLoading ? '⏳' : '↻'} {menuLoading ? 'Syncing...' : 'Sync Menu'}
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => router.push('/pos/tables')}>
+                ← Tables
+              </button>
+            </div>
           }
         />
 
@@ -1589,9 +1579,9 @@ function OrderEntryContent() {
           </div>
 
           <div className="menu-panel">
-            <div className="menu-search-bar" style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface-container)', borderRadius: 'var(--radius-lg)', padding: '10px 14px', border: '1px solid var(--outline-variant)' }}>
-                <IconSearch style={{ width: 15, height: 15, color: 'var(--on-surface-dim)', flexShrink: 0 }} />
+            <div className="menu-search-bar" style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '16px', borderBottom: '1px solid var(--outline-variant)' }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface-container)', borderRadius: 'var(--radius-lg)', padding: '10px 14px', border: '1px solid var(--outline-variant)' }}>
+                <IconSearch style={{ width: 15, height: 15, color: 'var(--on-surface-dim)' }} />
                 <input
                   ref={searchRef}
                   value={search}
@@ -1605,53 +1595,58 @@ function OrderEntryContent() {
                   </button>
                 )}
               </div>
-
-              <div style={{ flex: '1 1 420px', minWidth: 320, display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2,minmax(140px,1fr))' }}>
-                <select className="input-field" value={type} onChange={(e) => setType(e.target.value as 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY')}>
-                  <option value="DINE_IN">Dine In</option>
-                  <option value="TAKEAWAY">Takeaway</option>
-                  <option value="DELIVERY">Delivery</option>
-                </select>
-                <input className="input-field" value={tableId} onChange={(e) => setTableId(e.target.value)} placeholder={`Table ID / Number (${tableName})`} />
-                <input className="input-field" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer name" />
-                <input className="input-field" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Customer phone" />
-                <input className="input-field" type="number" min={1} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value || 1))} placeholder="Guest count" />
-                <input className="input-field" value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} placeholder="Order notes" />
-              </div>
-
-              <div style={{ flex: '1 1 100%', minWidth: 280, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-                <button
-                  className={`btn btn-sm ${isVoiceListening ? 'btn-danger' : 'btn-secondary'}`}
-                  onClick={isVoiceListening ? stopVoiceListening : startVoiceListening}
-                  disabled={!isVoiceSupported}
-                >
-                  {isVoiceListening ? 'Stop Voice' : 'Start Voice'}
-                </button>
-                <span style={{ fontSize: 12, color: 'var(--on-surface-dim)' }}>
-                  {isVoiceSupported
-                    ? isVoiceListening
-                      ? 'Listening... try: "Add 2 butter chicken and 1 coke"'
-                      : 'Voice command ready'
-                    : 'Voice input not supported in this browser'}
-                </span>
-                {voiceTranscript ? (
-                  <span style={{ fontSize: 12, color: 'var(--on-surface-dim)', width: '100%' }}>
-                    Last transcript: "{voiceTranscript}"
-                  </span>
-                ) : null}
-              </div>
+              <button
+                className={`btn ${isVoiceListening ? 'btn-danger' : 'btn-secondary'}`}
+                onClick={isVoiceListening ? stopVoiceListening : startVoiceListening}
+                disabled={!isVoiceSupported}
+              >
+                {isVoiceListening ? 'Stop Voice' : 'Start Voice'}
+              </button>
             </div>
+            {voiceTranscript && (
+              <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--on-surface-dim)' }}>
+                Last transcript: "{voiceTranscript}"
+              </div>
+            )}
 
             <div className="menu-grid">
               {filteredMenu.map((item) => (
-                <div key={item.id} className={`menu-item-card ${!item.available ? 'unavailable' : ''}`} onClick={() => addToCart(item)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className={`menu-item-veg ${item.isVeg ? 'veg' : 'nonveg'}`} />
-                    {item.aiTags?.includes('bestseller') && <span className="badge badge-warning">Best</span>}
+                <div
+                  key={item.id}
+                  className={`menu-item-card ${!item.available ? 'unavailable' : ''}`}
+                  onClick={() => addToCart(item)}
+                  style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                >
+                  {/* Item image or placeholder */}
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      style={{
+                        width: '100%',
+                        height: 90,
+                        objectFit: 'cover',
+                        display: 'block',
+                        borderBottom: '1px solid var(--outline-variant)',
+                        flexShrink: 0,
+                      }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : null}
+
+                  {/* Card body */}
+                  <div style={{ padding: '10px 10px 8px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className={`menu-item-veg ${item.isVeg ? 'veg' : 'nonveg'}`} />
+                      {item.aiTags?.includes('bestseller') && <span className="badge badge-warning">Best</span>}
+                      {!item.available && <span className="badge badge-danger" style={{ fontSize: 10 }}>Unavailable</span>}
+                    </div>
+                    <div className="menu-item-name">{item.name}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                      <div className="menu-item-price">₹{item.price}</div>
+                      <div className="menu-add-btn">+</div>
+                    </div>
                   </div>
-                  <div className="menu-item-name">{item.name}</div>
-                  <div className="menu-item-price">₹{item.price}</div>
-                  <div className="menu-add-btn">+</div>
                 </div>
               ))}
 
@@ -1663,47 +1658,41 @@ function OrderEntryContent() {
             </div>
           </div>
 
-<<<<<<< HEAD
-          <div className="cart-panel" style={{ width: 440 }}>
-=======
           {/* RIGHT COLUMN: Cart Panel */}
-          <div className="pos-right-side">
-            <div className="pos-top-filters">
-              <div className="input-with-icon" style={{ flex: 1 }}>
-                <span className="input-icon"><IconSearch /></span>
-                <input className="input-field" placeholder="Search in Existing" />
-              </div>
-            </div>
-            <div style={{ padding: '0 16px 16px', display: 'flex', gap: 8, borderBottom: '1px solid var(--outline-variant)' }}>
-              <select className="input-field" style={{ flex: 1 }} value={type} onChange={(e) => setType(e.target.value as any)}>
+          <div className="cart-panel">
+            <div style={{ padding: '16px', borderBottom: '1px solid var(--outline-variant)', display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
+              <select className="input-field" value={type} onChange={(e) => setType(e.target.value as any)}>
                 <option value="DINE_IN">Dine In</option>
                 <option value="TAKEAWAY">Takeaway</option>
                 <option value="DELIVERY">Delivery</option>
               </select>
-              <select className="input-field" style={{ flex: 1 }} value={tableId} onChange={(e) => setTableId(e.target.value)}>
+              <select className="input-field" value={tableId} onChange={(e) => setTableId(e.target.value)}>
                 <option value="">Select Table</option>
                 <option value={preselectedTableId || 'T1'}>{tableName !== 'Walk-in' ? tableName : (preselectedTableId || 'T1')}</option>
               </select>
-            </div>
-            <div style={{ padding: '0 16px 16px', display: 'flex', gap: 8, borderBottom: '1px solid var(--outline-variant)' }}>
-              <select className="input-field" style={{ flex: 1 }} value={diningArea} onChange={(e) => setDiningArea(e.target.value)}>
-                <option value="">Select Dining Area</option>
+              
+              <input className="input-field" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer name" />
+              <input className="input-field" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Customer phone" />
+              
+              <select className="input-field" value={diningArea} onChange={(e) => setDiningArea(e.target.value)}>
+                <option value="">Dining Area</option>
                 <option value="Indoor">Indoor</option>
                 <option value="Outdoor">Outdoor</option>
                 <option value="Rooftop">Rooftop</option>
                 <option value="Private">Private Room</option>
               </select>
+              <input className="input-field" type="number" min={1} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value || 1))} placeholder="Guest count" />
+
+              <input className="input-field" style={{ gridColumn: '1 / -1' }} value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} placeholder="Order notes" />
               <input 
                 className="input-field" 
-                style={{ flex: 1 }} 
+                style={{ gridColumn: '1 / -1' }} 
                 type="datetime-local" 
                 value={scheduledAt} 
                 onChange={(e) => setScheduledAt(e.target.value)}
-                placeholder="Schedule Order (Optional)"
+                placeholder="Schedule Order"
               />
             </div>
-
->>>>>>> d581031 (first phase almost done)
             <div className="cart-header">
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>Order Cart</div>

@@ -265,13 +265,13 @@ export default function PromotionsPage() {
                           {promo.minOrderAmount !== undefined && (
                             <div>
                               <div style={{ color: 'var(--on-surface-dim)' }}>Min Order</div>
-                              <div style={{ fontWeight: 600 }}>{formatCurrency(promo.minOrderAmount)}</div>
+                              <div style={{ fontWeight: 600 }}>{formatCurrency(promo.minOrderAmount ?? 0)}</div>
                             </div>
                           )}
                           {promo.maxDiscountAmount !== undefined && (
                             <div>
                               <div style={{ color: 'var(--on-surface-dim)' }}>Max Cap</div>
-                              <div style={{ fontWeight: 600 }}>{formatCurrency(promo.maxDiscountAmount)}</div>
+                              <div style={{ fontWeight: 600 }}>{formatCurrency(promo.maxDiscountAmount ?? 0)}</div>
                             </div>
                           )}
                           {promo.appliesToMenuItem && (

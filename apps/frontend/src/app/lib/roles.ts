@@ -14,6 +14,7 @@ const ROLE_ALLOWED_PATHS: Record<AppRole, string[]> = {
     '/analytics',
     '/inventory',
     '/menu',
+    '/orders',
     '/promotions',
     '/settings',
     '/kds',
@@ -29,6 +30,7 @@ const ROLE_ALLOWED_PATHS: Record<AppRole, string[]> = {
     '/analytics',
     '/inventory',
     '/menu',
+    '/orders',
     '/promotions',
     '/settings',
     '/kds',
@@ -39,8 +41,8 @@ const ROLE_ALLOWED_PATHS: Record<AppRole, string[]> = {
     '/invoice',
     '/user',
   ],
-  WAITER: ['/kds', '/pos/tables', '/pos/order', '/pos/bills', '/pos/reservations', '/invoice', '/invoice/receipt'],
-  CHEF: ['/kds', '/menu', '/specials'],
+  WAITER: ['/orders', '/kds', '/pos/tables', '/pos/order', '/pos/bills', '/pos/reservations', '/invoice', '/invoice/receipt'],
+  CHEF: ['/orders', '/kds', '/menu', '/specials'],
 };
 
 export function normalizeRole(role: string | null | undefined): AppRole {

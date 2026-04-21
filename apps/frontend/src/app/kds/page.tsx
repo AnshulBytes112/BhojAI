@@ -73,6 +73,7 @@ export default function KDSPage() {
   const [draggingKotId, setDraggingKotId] = useState('');
   const [userRole, setUserRole] = useState<KDSRole>('WAITER');
   const [orderTypeFilter, setOrderTypeFilter] = useState<'ALL' | 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'>('ALL');
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const knownPendingIdsRef = useRef<Set<string>>(new Set());
   const inFlightStatusRef = useRef<Map<string, InFlightStatus>>(new Map());
 
@@ -206,28 +207,7 @@ export default function KDSPage() {
         return ticket;
       });
 
-      // Group by tableId for dine-in, keep individual for takeaway/delivery
-      const tableBuckets = new Map<string, KOT[]>();
-      for (const ticket of stabilized) {
-        // Use order ID as key for takeaway/delivery (no table grouping)
-        const bucketKey = ticket.tableId || ticket.id;
-        const bucket = tableBuckets.get(bucketKey) || [];
-        bucket.push(ticket);
-        tableBuckets.set(bucketKey, bucket);
-      }
-
-      const visibleKots: KOT[] = Array.from(tableBuckets.values()).map((tickets) => {
-        const sorted = [...tickets].sort(
-          (a, b) =>
-            new Date(b.updatedAt || b.createdAt).getTime() -
-            new Date(a.updatedAt || a.createdAt).getTime()
-        );
-
-        // Always prefer active table work over historical finished tickets.
-        const active = sorted.find((ticket) => ticket.status !== 'COMPLETED' && ticket.status !== 'CANCELLED');
-        return active || sorted[0];
-      });
-      const incomingKitchen = new Set(visibleKots.filter((k) => k.status === 'PENDING').map((k) => k.id));
+      const incomingKitchen = new Set(stabilized.filter((k) => k.status === 'PENDING').map((k) => k.id));
       const newlyArrived = Array.from(incomingKitchen).filter((id) => !knownPendingIdsRef.current.has(id));
 
       if (newlyArrived.length > 0) {
@@ -245,7 +225,8 @@ export default function KDSPage() {
       }
 
       knownPendingIdsRef.current = incomingKitchen;
-      setKots(visibleKots);
+      setKots(stabilized);
+      setLastRefreshed(new Date());
     } catch {
       addToast({ icon: '⚠️', title: 'KDS sync failed', message: 'Could not fetch latest kitchen orders.' });
     } finally {
@@ -258,7 +239,7 @@ export default function KDSPage() {
     setUserRole(normalizeKDSRole(user?.role));
 
     void fetchKOTs();
-    const interval = window.setInterval(() => void fetchKOTs(), 5000);
+    const interval = window.setInterval(() => void fetchKOTs(), 3000);
     return () => window.clearInterval(interval);
   }, [fetchKOTs]);
 
@@ -375,7 +356,7 @@ export default function KDSPage() {
       <div className="pos-main">
         <TopBar
           title="Kitchen Display System"
-          subtitle={`Flow-driven board (/api/orders) ${loading ? '· syncing...' : ''}`}
+          subtitle={`Live kitchen board · auto-updates every 3s ${loading ? '· syncing…' : '· ✓ live'}`}
           actions={
             <div className="flex gap-2" style={{ alignItems: 'center' }}>
               <select
@@ -398,9 +379,15 @@ export default function KDSPage() {
                 <option value="TAKEAWAY">🥡 Takeaway</option>
                 <option value="DELIVERY">🛵 Delivery</option>
               </select>
-              <div className="topbar-chip" style={{ fontSize: 12, fontWeight: 500 }}>
-                🔄 Auto-refresh 5s
+              <div className="topbar-chip" style={{ fontSize: 12, fontWeight: 600, background: 'var(--primary-container)', color: 'var(--on-primary-container)' }}>
+                👤 {userRole}
               </div>
+              <div className="topbar-chip" style={{ fontSize: 12, fontWeight: 500 }}>
+                🔄 {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </div>
+              <button className="btn btn-sm btn-secondary" onClick={() => void fetchKOTs()} title="Refresh now">
+                ↻ Refresh
+              </button>
               <button className={`chip ${isSoundOn ? 'active' : ''}`} onClick={() => setIsSoundOn((v) => !v)}>
                 {isSoundOn ? '🔊 Alerts On' : '🔇 Alerts Off'}
               </button>
@@ -508,7 +495,8 @@ export default function KDSPage() {
                       const isNewPending = kot.status === 'PENDING' && highlightedIds.includes(kot.id);
                       const nextStatus = STATUS_ORDER[STATUS_ORDER.indexOf(kot.status) + 1];
                       const canAdvance = Boolean(nextStatus && canTransition(kot.status, nextStatus));
-                      const isExpanded = expandedKotIds.includes(kot.id);
+                      // Auto-expand for PENDING orders so kitchen sees items immediately
+                      const isExpanded = expandedKotIds.includes(kot.id) || kot.status === 'PENDING';
                       const nextSectionLabel: Partial<Record<KOTStatus, string>> = {
                         PENDING: 'Kitchen',
                         KITCHEN: 'Ready',
@@ -557,12 +545,16 @@ export default function KDSPage() {
                                     className={`btn btn-sm ${canAdvance ? 'btn-success' : 'btn-secondary'}`}
                                     onClick={() => advanceStatus(kot)}
                                     disabled={!canAdvance}
-                                    title={canAdvance ? `Move to ${nextSectionLabel[kot.status] || nextStatus}` : `${userRole} cannot move ${kot.status} to ${nextStatus}`}
-                                    style={{ minWidth: 116, padding: '6px 10px' }}
+                                    title={canAdvance ? `Move to ${nextSectionLabel[kot.status] || nextStatus}` : `${userRole} cannot move from ${kot.status}`}
+                                    style={{ minWidth: 130, padding: '6px 10px' }}
                                   >
                                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                                       <IconCheck style={{ width: 13, height: 13 }} />
-                                      <span>Mark as Done</span>
+                                      <span>
+                                        {canAdvance
+                                          ? `→ ${nextSectionLabel[kot.status] || nextStatus}`
+                                          : `Locked (${userRole})`}
+                                      </span>
                                     </span>
                                   </button>
                                 )}

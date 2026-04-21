@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Sidebar,
   TopBar,
@@ -100,32 +100,48 @@ export default function AnalyticsPage() {
   const [hourly, setHourly] = useState<HourlyPoint[]>(FALLBACK_HOURLY);
   const [insights, setInsights] = useState<AIInsight[]>(FALLBACK_INSIGHTS);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const PERIOD_OPTIONS = ['today', 'yesterday', 'week', 'month', 'last30'] as const;
+  type PeriodKey = typeof PERIOD_OPTIONS[number];
+  const [period, setPeriod] = useState<PeriodKey>('today');
+  const [showPeriodMenu, setShowPeriodMenu] = useState(false);
+  const mountedRef = useRef(true);
 
-  useEffect(() => {
-    let mounted = true;
+  const PERIOD_LABELS: Record<string, string> = {
+    today: '📅 Today',
+    yesterday: '📅 Yesterday',
+    week: '📅 This Week',
+    month: '📅 This Month',
+    last30: '📅 Last 30 Days',
+  };
 
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [summaryData, topItemsData, hourlyData, insightsData] = await Promise.all([
-          apiRequest<DashboardSummary>('/dashboard/summary'),
-          apiRequest<TopItem[]>('/dashboard/top-items'),
-          apiRequest<HourlyPoint[]>('/dashboard/hourly'),
-          apiRequest<{ insights: AIInsight[] }>('/ai/insights'),
-        ]);
+  const load = useCallback(async (silent = false, forcePeriod?: string) => {
+    const activePeriod = forcePeriod ?? period;
+    if (!silent) setLoading(true);
+    else setIsRefreshing(true);
+    try {
+      const qs = `?period=${activePeriod}`;
+      const [summaryData, topItemsData, hourlyData, insightsData] = await Promise.all([
+        apiRequest<DashboardSummary>(`/dashboard/summary${qs}`),
+        apiRequest<TopItem[]>(`/dashboard/top-items${qs}`),
+        apiRequest<HourlyPoint[]>(`/dashboard/hourly${qs}`),
+        apiRequest<{ insights: AIInsight[] }>('/ai/insights'),
+      ]);
 
-        if (!mounted) return;
-        setSummary(summaryData);
-        setTopItems(topItemsData.length ? topItemsData : FALLBACK_TOP_ITEMS);
-        setHourly(hourlyData.length ? hourlyData : FALLBACK_HOURLY);
+      if (!mountedRef.current) return;
+      setSummary(summaryData);
+      setTopItems(topItemsData.length ? topItemsData : FALLBACK_TOP_ITEMS);
+      setHourly(hourlyData.length ? hourlyData : FALLBACK_HOURLY);
+      setLastUpdated(new Date());
 
-        // Handle insights response
-        if (insightsData && insightsData.insights) {
-          setInsights(insightsData.insights);
-        }
-      } catch {
-        if (!mounted) return;
+      if (insightsData && insightsData.insights) {
+        setInsights(insightsData.insights);
+      }
+    } catch {
+      if (!mountedRef.current) return;
+      if (!silent) {
         setSummary(FALLBACK_SUMMARY);
         setTopItems(FALLBACK_TOP_ITEMS);
         setHourly(FALLBACK_HOURLY);
@@ -141,16 +157,37 @@ export default function AnalyticsPage() {
           },
         ]);
         setTimeout(() => setToasts((prev) => prev.filter((toast) => toast.id !== id)), 4500);
-      } finally {
-        if (mounted) setLoading(false);
       }
-    };
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
+    }
+  }, [period]);
 
-    load();
+  useEffect(() => {
+    mountedRef.current = true;
+    load(false);
+
+    // Poll every 30 seconds for real-time updates
+    const interval = setInterval(() => {
+      load(true); // silent refresh — no loading spinner
+    }, 30000);
+
     return () => {
-      mounted = false;
+      mountedRef.current = false;
+      clearInterval(interval);
     };
-  }, []);
+  }, [load]);
+
+  // Close period dropdown on outside click
+  useEffect(() => {
+    if (!showPeriodMenu) return;
+    const handler = () => setShowPeriodMenu(false);
+    window.addEventListener('click', handler, { capture: true, once: true });
+    return () => window.removeEventListener('click', handler, { capture: true });
+  }, [showPeriodMenu]);
 
   return (
     <div className="pos-layout" style={{ background: 'var(--surface)' }}>
@@ -159,14 +196,78 @@ export default function AnalyticsPage() {
       <div className="pos-main">
         <TopBar
           title="Welcome to Dashboard"
-          subtitle="Overview of your restaurant's performance • Live Sync Active"
+          subtitle={`Real-time restaurant performance · ${PERIOD_LABELS[period].replace('📅 ', '')}`}
           actions={
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button className="btn btn-secondary">
-                📅 Today
-              </button>
-              <button className="btn btn-primary" onClick={() => window.location.reload()}>
-                Refresh Data
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              {/* Live indicator */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 20, padding: '4px 12px' }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: isRefreshing ? '#f59e0b' : '#10b981',
+                  display: 'inline-block',
+                  boxShadow: isRefreshing ? '0 0 0 2px rgba(245,158,11,0.25)' : '0 0 0 2px rgba(16,185,129,0.25)',
+                  animation: 'pulse-dot 1.5s infinite',
+                }} />
+                {isRefreshing ? 'Syncing…' : 'Live'}
+                {lastUpdated && (
+                  <span style={{ color: '#9ca3af', marginLeft: 4 }}>
+                    · {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                )}
+              </div>
+
+              {/* Date range dropdown */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowPeriodMenu((v) => !v)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 148 }}
+                >
+                  {PERIOD_LABELS[period]}
+                  <span style={{ fontSize: 10, marginLeft: 'auto', color: '#9ca3af' }}>▼</span>
+                </button>
+                {showPeriodMenu && (
+                  <div style={{
+                    position: 'absolute', top: '110%', right: 0, zIndex: 200,
+                    background: '#fff', border: '1px solid #e5e7eb',
+                    borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                    minWidth: 180, overflow: 'hidden',
+                  }}>
+                    {(Object.entries(PERIOD_LABELS) as [string, string][]).map(([key, label]) => (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          const newPeriod = key as typeof period;
+                          setPeriod(newPeriod);
+                          setShowPeriodMenu(false);
+                          load(false, newPeriod);
+                        }}
+                        style={{
+                          width: '100%', textAlign: 'left', padding: '10px 16px',
+                          background: period === key ? '#fff7ed' : 'transparent',
+                          color: period === key ? '#ea580c' : '#374151',
+                          fontWeight: period === key ? 700 : 500,
+                          fontSize: 13, border: 'none', cursor: 'pointer',
+                          borderBottom: '1px solid #f3f4f6',
+                          transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={(e) => { if (period !== key) e.currentTarget.style.background = '#f9fafb'; }}
+                        onMouseLeave={(e) => { if (period !== key) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="btn btn-primary"
+                onClick={() => load(false)}
+                disabled={loading}
+                style={{ minWidth: 110 }}
+              >
+                {loading ? '⏳ Loading…' : '↻ Refresh'}
               </button>
             </div>
           }
@@ -206,8 +307,8 @@ export default function AnalyticsPage() {
                 <div style={{ fontSize: 28, fontWeight: 800, color: '#111827' }}>{loading ? '...' : formatNumber(summary.totalOrders * 2.4)}</div>
                 <div style={{ fontSize: 12, color: '#10b981', fontWeight: 600, marginTop: 4 }}>+5.2% <span style={{ color: '#9ca3af' }}>vs yesterday</span></div>
               </div>
-              <div style={{ background: '#eff6ff', padding: 12, borderRadius: 12, color: '#3b82f6' }}>
-                <IconUsers style={{ width: 24, height: 24 }} />
+              <div style={{ background: '#eff6ff', padding: 12, borderRadius: 12, color: '#3b82f6', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconUsers />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 16, marginTop: 24, paddingTop: 16, borderTop: '1px solid #f3f4f6' }}>
@@ -228,8 +329,8 @@ export default function AnalyticsPage() {
                 <div style={{ fontSize: 28, fontWeight: 800, color: '#111827' }}>{loading ? '...' : formatCurrency(summary.avgOrderValue)}</div>
                 <div style={{ fontSize: 12, color: '#f43f5e', fontWeight: 600, marginTop: 4 }}>-1.5% <span style={{ color: '#9ca3af' }}>vs yesterday</span></div>
               </div>
-              <div style={{ background: '#fef2f2', padding: 12, borderRadius: 12, color: '#ef4444' }}>
-                <IconCard style={{ width: 24, height: 24 }} />
+              <div style={{ background: '#fef2f2', padding: 12, borderRadius: 12, color: '#ef4444', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconCard />
               </div>
             </div>
              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, marginTop: 16, height: 36 }}>
@@ -245,12 +346,12 @@ export default function AnalyticsPage() {
               <div>
                 <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600, marginBottom: 8 }}>Customer Satisfaction</div>
                 <div style={{ fontSize: 28, fontWeight: 800, color: '#111827', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  4.8 <IconStar style={{ width: 20, height: 20, color: '#f59e0b' }} />
+                  4.8 <span style={{ width: 20, height: 20, color: '#f59e0b', display: 'inline-block' }}><IconStar /></span>
                 </div>
                 <div style={{ fontSize: 12, color: '#10b981', fontWeight: 600, marginTop: 4 }}>+0.2 <span style={{ color: '#9ca3af' }}>from last week</span></div>
               </div>
-              <div style={{ background: '#fffbeb', padding: 12, borderRadius: 12, color: '#f59e0b' }}>
-                <IconFlame style={{ width: 24, height: 24 }} />
+              <div style={{ background: '#fffbeb', padding: 12, borderRadius: 12, color: '#f59e0b', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconFlame />
               </div>
             </div>
             <div style={{ fontSize: 12, color: '#6b7280', marginTop: 24, paddingTop: 16, borderTop: '1px solid #f3f4f6' }}>

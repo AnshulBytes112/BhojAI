@@ -94,23 +94,22 @@ export default function OrdersPage() {
     }, 4200);
   };
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth.token') || '' : '';
-
   const callApi = async (path: string, init?: RequestInit) => {
+    const currentToken = typeof window !== 'undefined' ? sessionStorage.getItem('auth.token') || '' : '';
     const headers = new Headers(init?.headers || {});
     if (!headers.has('Content-Type') && init?.body) {
       headers.set('Content-Type', 'application/json');
     }
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+    if (currentToken) {
+      headers.set('Authorization', `Bearer ${currentToken}`);
     }
 
     const res = await fetch(`${API}${path}`, { ...init, headers });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       if (res.status === 401 && typeof window !== 'undefined') {
-        localStorage.removeItem('auth.token');
-        localStorage.removeItem('auth.user');
+        sessionStorage.removeItem('auth.token');
+        sessionStorage.removeItem('auth.user');
         if (window.location.pathname !== '/login') {
           window.location.assign('/login');
         }

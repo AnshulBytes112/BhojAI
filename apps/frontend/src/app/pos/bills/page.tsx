@@ -34,7 +34,7 @@ interface BillItem {
       menuItem?: { name?: string | null } | null;
     }>;
   } | null;
-  payments?: Array<{ id: string; amount: number; method: string }>;
+  payments?: Array<{ id: string; amount: number; method: string; transactionId?: string | null; createdAt?: string | null; status?: string | null }>;
   childBills?: Array<{ id: string; totalAmount: number; isPaid: boolean }>;
 }
 
@@ -67,6 +67,7 @@ export default function BillsPage() {
   const [search, setSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('All Payment Types');
   const [selectedBill, setSelectedBill] = useState<BillItem | null>(null);
+  const [staffName, setStaffName] = useState('Staff');
 
   const addToast = (t: Omit<ToastItem, 'id'>) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -84,14 +85,26 @@ export default function BillsPage() {
       if (bills.length > 0 && !selectedBill) setSelectedBill(bills[0]);
     } catch (err: any) {
       console.error('Failed to fetch bills:', err);
-      addToast({ title: 'Error', message: 'Failed to fetch real bill data. Showing empty list.', type: 'error' });
+      addToast({ title: 'Error', message: 'Failed to fetch real bill data. Showing empty list.', icon: 'x' });
       setAllBills([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { void fetchBills(); }, []);
+  useEffect(() => {
+    void fetchBills();
+    // Load real staff name from session
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem('auth.user');
+        if (raw) {
+          const u = JSON.parse(raw);
+          setStaffName(u?.name || u?.username || 'Staff');
+        }
+      } catch {}
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -356,29 +369,52 @@ export default function BillsPage() {
 
                 {/* Payment Method details */}
                 <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>Payment Method</div>
-                  <div style={{ background: '#fcfbf9', border: '1px solid #f0ede8', borderRadius: 8, padding: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: 13, color: '#666' }}>{selectedBill.payments?.[0]?.method === 'CASH' ? 'Cash Payment' : selectedBill.payments?.[0]?.method === 'CARD' ? 'Card Payment' : 'UPI Payment'}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      REF{selectedBill.id.replace(/\D/g, '')}52415 <span style={{ cursor: 'pointer', color: '#aaa' }}>⧉</span>
+                  <div style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>Payment Details</div>
+                  {selectedBill.payments && selectedBill.payments.length > 0 ? (
+                    selectedBill.payments.map((pay, idx) => {
+                      const methodLabel = pay.method === 'CASH' ? '💵 Cash' : pay.method === 'CARD' ? '💳 Card' : '📱 UPI';
+                      const txnId = pay.transactionId || `REF${pay.id.replace(/\D/g, '').slice(-8).padStart(8, '0')}`;
+                      const paidAt = pay.createdAt ? formatDate(pay.createdAt) : formatDate(selectedBill.createdAt);
+                      return (
+                        <div key={idx} style={{ background: '#fcfbf9', border: '1px solid #f0ede8', borderRadius: 8, padding: '12px 14px', marginBottom: 8 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{methodLabel}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#ea580c' }}>{formatINR(pay.amount)}</div>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontSize: 11, color: '#999', fontFamily: 'monospace' }}>{txnId}</div>
+                            <div style={{ fontSize: 11, color: pay.status === 'SUCCESS' ? '#16a34a' : '#ea580c', fontWeight: 600 }}>
+                              {pay.status || 'SUCCESS'}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>{paidAt}</div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div style={{ background: '#fcfbf9', border: '1px dashed #f0ede8', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#bbb', textAlign: 'center' }}>
+                      {selectedBill.isPaid ? 'Payment recorded' : 'No payment yet'}
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* Paid On */}
+                {/* Paid Status */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                  <div style={{ fontSize: 13, color: '#666' }}>Paid On</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {formatDate(selectedBill.createdAt).split(', ').join(', ')} 
-                    <img src="https://i.pravatar.cc/100?img=11" alt="staff" style={{ width: 20, height: 20, borderRadius: '50%' }} />
+                  <div style={{ fontSize: 13, color: '#666' }}>Status</div>
+                  <div style={{
+                    padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                    background: selectedBill.isPaid ? '#dcfce7' : '#fff7ed',
+                    color: selectedBill.isPaid ? '#166534' : '#c2410c'
+                  }}>
+                    {selectedBill.isPaid ? '✓ Paid' : '⏳ Pending'}
                   </div>
                 </div>
 
                 {/* Staff */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                  <div style={{ fontSize: 13, color: '#666' }}>Staff</div>
-                  <div style={{ background: '#fcfbf9', border: '1px solid #f0ede8', borderRadius: 6, padding: '6px 12px', fontSize: 13, fontWeight: 600, color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                    John Smith <span style={{ fontSize: 10, color: '#aaa' }}>▼</span>
+                  <div style={{ fontSize: 13, color: '#666' }}>Processed By</div>
+                  <div style={{ background: '#fcfbf9', border: '1px solid #f0ede8', borderRadius: 6, padding: '6px 12px', fontSize: 13, fontWeight: 600, color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    👤 {staffName}
                   </div>
                 </div>
 

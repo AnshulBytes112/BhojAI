@@ -1148,7 +1148,7 @@ ul, ol { list-style: none; }
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .kds-column {
@@ -1158,6 +1158,7 @@ ul, ol { list-style: none; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 .kds-column-header {
@@ -1204,6 +1205,9 @@ ul, ol { list-style: none; }
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Critical: allow cards to scroll instead of compress */
+  min-height: 0;
+  max-height: 100%;
 }
 
 .kot-card {
@@ -1212,14 +1216,17 @@ ul, ol { list-style: none; }
   border: 1px solid var(--outline-variant);
   overflow: hidden;
   transition: all var(--duration-fast) var(--ease-smooth);
+  /* Critical: never let cards compress in a flex column */
+  flex-shrink: 0;
+  min-height: 80px;
 }
 
 .kot-card:hover { border-color: var(--primary); transform: translateY(-1px); }
 
 .kds-new-ticket {
-  border-color: rgba(59, 130, 246, 0.65);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.28), 0 12px 32px rgba(0, 0, 0, 0.28);
-  animation: kds-ticket-pop 800ms var(--ease-spring), kds-ticket-glow 1.8s ease-in-out infinite;
+  border-color: rgba(59, 130, 246, 0.75) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: kds-ticket-glow 2s ease-in-out infinite;
 }
 
 @keyframes kds-ticket-pop {
@@ -1233,12 +1240,14 @@ ul, ol { list-style: none; }
 }
 
 .kot-card-header {
-  padding: 10px 14px;
+  padding: 12px 14px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  background: var(--surface-high);
+  gap: 8px;
+  background: var(--surface-container-low, #f9f8f6);
   border-bottom: 1px solid var(--outline-variant);
+  min-height: 60px;
 }
 
 .kot-table-badge {
@@ -1269,6 +1278,37 @@ ul, ol { list-style: none; }
 .kot-item-note { font-size: 11px; color: var(--warning); background: var(--warning-bg); border-radius: var(--radius-sm); padding: 4px 8px; margin: 2px 0; }
 
 .kot-actions { padding: 10px 14px; display: flex; gap: 6px; border-top: 1px solid var(--outline-variant); }
+
+/* Items toggle button inside KOT card */
+.kot-items-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--outline-variant);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--on-surface-dim);
+  text-align: left;
+  transition: background var(--duration-fast);
+}
+.kot-items-toggle:hover { background: var(--surface-highest); }
+
+/* PENDING card — warm orange left border accent */
+.kds-column:first-child .kot-card {
+  border-left: 3px solid var(--warning, #f59e0b);
+}
+/* KITCHEN card — blue left border */
+.kds-column:nth-child(2) .kot-card {
+  border-left: 3px solid #3b82f6;
+}
+/* READY card — green left border */
+.kds-column:nth-child(3) .kot-card {
+  border-left: 3px solid var(--success, #10b981);
+}
 
 /* ─── Payment Modal ──────────────────────────────────────────────────────────── */
 .modal-overlay {

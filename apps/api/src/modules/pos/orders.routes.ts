@@ -282,54 +282,59 @@ router.patch('/:id/items', async (req: AuthRequest, res: Response) => {
 
 // PATCH /api/orders/:id/status
 router.patch('/:id/status', async (req: AuthRequest, res: Response) => {
-  const { status } = req.body;
-  const validStatuses = ['PENDING', 'KITCHEN', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED'];
-  if (!validStatuses.includes(status)) {
-    return res.status(400).json({ error: 'Invalid status' });
-  }
-
-  const existingOrder = await prisma.order.findFirst({
-    where: { id: req.params.id, restaurantId: req.user!.restaurantId },
-  });
-  if (!existingOrder) return res.status(404).json({ error: 'Order not found' });
-
-  const order = await prisma.order.update({
-    where: { id: existingOrder.id },
-    data: { status },
-  });
-
-  // Free table if completed/cancelled
-  if ((status === 'COMPLETED' || status === 'CANCELLED') && order.tableId) {
-    await prisma.restaurantTable.update({
-      where: { id: order.tableId },
-      data: { status: 'AVAILABLE' },
-    });
-  }
-
-  // If order is COMPLETED, ensure the associated bill is marked as PAID
-  if (status === 'COMPLETED') {
-    const bill = await prisma.bill.findFirst({
-      where: { orderId: order.id }
-    });
-    if (bill && !bill.isPaid) {
-      await prisma.bill.update({
-        where: { id: bill.id },
-        data: { isPaid: true }
-      });
-      console.log(`Automatically marked bill ${bill.billNumber} as PAID because order was COMPLETED.`);
+  try {
+    const { status } = req.body;
+    const validStatuses = ['PENDING', 'KITCHEN', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
     }
+
+    const existingOrder = await prisma.order.findFirst({
+      where: { id: req.params.id, restaurantId: req.user!.restaurantId },
+    });
+    if (!existingOrder) return res.status(404).json({ error: 'Order not found' });
+
+    const order = await prisma.order.update({
+      where: { id: existingOrder.id },
+      data: { status },
+    });
+
+    // Free table if completed/cancelled
+    if ((status === 'COMPLETED' || status === 'CANCELLED') && order.tableId) {
+      await prisma.restaurantTable.update({
+        where: { id: order.tableId },
+        data: { status: 'AVAILABLE' },
+      });
+    }
+
+    // If order is COMPLETED, ensure the associated bill is marked as PAID
+    if (status === 'COMPLETED') {
+      const bill = await prisma.bill.findFirst({
+        where: { orderId: order.id }
+      });
+      if (bill && !bill.isPaid) {
+        await prisma.bill.update({
+          where: { id: bill.id },
+          data: { isPaid: true }
+        });
+        console.log(`Automatically marked bill ${bill.billNumber} as PAID because order was COMPLETED.`);
+      }
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'ORDER_STATUS_CHANGED',
+        description: `Order status changed to ${status}`,
+        orderId: order.id,
+        userId: req.user!.id,
+      },
+    });
+
+    res.json(order);
+  } catch (err) {
+    console.error('Error updating order status:', err);
+    res.status(500).json({ error: 'Failed to update order status' });
   }
-
-  await prisma.auditLog.create({
-    data: {
-      action: 'ORDER_STATUS_CHANGED',
-      description: `Order status changed to ${status}`,
-      orderId: order.id,
-      userId: req.user!.id,
-    },
-  });
-
-  res.json(order);
 });
 
 // POST /api/orders/:id/bill  - Generate bill

@@ -23,7 +23,23 @@ import aiRoutes from './modules/ai/ai.routes';
 const app = express();
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
-app.use(cors());
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // In development, allow all
+    if (process.env.NODE_ENV !== 'production') return callback(null, true);
+    callback(new Error(`CORS: ${origin} not allowed`));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
@@ -70,7 +86,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 // ─── Start ───────────────────────────────────────────────────────────────────
-const port = process.env.PORT || 3334;
+const port = process.env.PORT || 3333;
 const server = app.listen(port, () => {
   console.log(`\n🍽️  BhojAI Restaurant OS API`);
   console.log(`📡 Listening at http://localhost:${port}/api`);

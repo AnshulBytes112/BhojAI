@@ -5,13 +5,49 @@ import { authenticate, AuthRequest } from '../../middleware/auth';
 const router = Router();
 router.use(authenticate);
 
+/** Convert ?period= shorthand to a {start, end} range. Falls back to ?from=&to= if present. */
+function resolveDateRange(query: Record<string, unknown>): { start: Date; end: Date } {
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd   = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+
+  if (query.from || query.to) {
+    return {
+      start: query.from ? new Date(String(query.from)) : todayStart,
+      end:   query.to   ? new Date(String(query.to))   : todayEnd,
+    };
+  }
+
+  switch (query.period) {
+    case 'yesterday': {
+      const d = new Date(now); d.setDate(d.getDate() - 1);
+      const s = new Date(d); s.setHours(0, 0, 0, 0);
+      const e = new Date(d); e.setHours(23, 59, 59, 999);
+      return { start: s, end: e };
+    }
+    case 'week': {
+      const s = new Date(now);
+      s.setDate(s.getDate() - s.getDay()); // Sunday
+      s.setHours(0, 0, 0, 0);
+      return { start: s, end: todayEnd };
+    }
+    case 'month': {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start: s, end: todayEnd };
+    }
+    case 'last30': {
+      const s = new Date(now); s.setDate(s.getDate() - 30); s.setHours(0, 0, 0, 0);
+      return { start: s, end: todayEnd };
+    }
+    default: // 'today'
+      return { start: todayStart, end: todayEnd };
+  }
+}
+
 // GET /api/dashboard/summary  - Sales summary for a date range
 router.get('/summary', async (req: AuthRequest, res: Response) => {
-  const { from, to } = req.query;
+  const { start, end } = resolveDateRange(req.query as Record<string, unknown>);
   const restaurantId = req.user!.restaurantId;
-
-  const start = from ? new Date(String(from)) : new Date(new Date().setHours(0, 0, 0, 0));
-  const end = to ? new Date(String(to)) : new Date(new Date().setHours(23, 59, 59, 999));
 
   const [orders, bills, payments] = await Promise.all([
     prisma.order.findMany({
@@ -64,11 +100,9 @@ router.get('/summary', async (req: AuthRequest, res: Response) => {
 
 // GET /api/dashboard/top-items  - Best selling menu items
 router.get('/top-items', async (req: AuthRequest, res: Response) => {
-  const { from, to, limit } = req.query;
+  const { start, end } = resolveDateRange(req.query as Record<string, unknown>);
   const restaurantId = req.user!.restaurantId;
-  const start = from ? new Date(String(from)) : new Date(new Date().setDate(new Date().getDate() - 30));
-  const end = to ? new Date(String(to)) : new Date();
-  const take = Number(limit) || 10;
+  const take = Number(req.query.limit) || 10;
 
   const orderItems = await prisma.orderItem.findMany({
     where: { order: { restaurantId, createdAt: { gte: start, lte: end } } },

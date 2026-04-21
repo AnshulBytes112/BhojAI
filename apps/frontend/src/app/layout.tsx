@@ -1,10 +1,10 @@
 import './global.css';
 import type { Metadata } from 'next';
-import { ServiceWorkerProvider } from './components/service-worker-provider';
-import { AuthGuard } from './components/AuthGuard';
+// import { ServiceWorkerProvider } from './components/service-worker-provider';
+// import { AuthGuard } from './components/AuthGuard';
 
 export const metadata: Metadata = {
-  title: 'BhojAI — Restaurant POS',
+  title: 'BhojAI - Restaurant POS',
   description: 'AI-powered restaurant point-of-sale. Manage orders, tables, billing, and kitchen operations.',
 };
 
@@ -20,10 +20,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <ServiceWorkerProvider />
-        <AuthGuard>
+        {/* <ServiceWorkerProvider /> */}
+        {/* <AuthGuard>
           {children}
-        </AuthGuard>
+        </AuthGuard> */}
+        {children}
       </body>
     </html>
   );

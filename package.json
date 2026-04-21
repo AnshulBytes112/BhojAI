@@ -9,6 +9,7 @@
     "seed": "tsx prisma/seed.ts",
     "build:api": "npx prisma generate --schema ./prisma/schema.prisma && npx nx build api",
     "build:frontend": "npx nx build frontend",
+    "build:frontend:vercel": "cd apps/frontend && next build",
     "build": "npx prisma generate --schema ./prisma/schema.prisma && npx nx build api",
     "start": "node dist/apps/api/main.js"
   },

@@ -6,7 +6,6 @@
 const nextConfig = {
   // Basic Next.js configuration
   reactStrictMode: true,
-  swcMinify: true,
   
   // Environment variables
   env: {

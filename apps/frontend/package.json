@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "cd ../.. && npm run build:frontend",
-    "dev": "cd ../.. && npm run dev:frontend",
+    "build": "next build",
+    "dev": "next dev",
     "start": "next start"
   },
   "dependencies": {

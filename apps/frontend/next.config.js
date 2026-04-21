@@ -12,18 +12,10 @@ const nextConfig = {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334/api',
   },
   
-  // Output configuration
-  output: 'export',
-  trailingSlash: true,
+  // Images configuration for Vercel
   images: {
     unoptimized: true,
   },
-  
-  // Base path for deployment
-  basePath: '',
-  
-  // Asset prefix for CDN (if needed)
-  assetPrefix: '',
 };
 
 module.exports = nextConfig;

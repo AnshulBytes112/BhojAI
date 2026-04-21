@@ -1,0 +1,23 @@
+services:
+  # API Service
+  - type: web
+    name: bhojai-api
+    env: node
+    plan: free
+    rootDir: .
+    buildCommand: "npm run build"
+    startCommand: "npm start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3334
+      - key: DATABASE_URL
+        sync: false # Set this in Render dashboard
+      - key: JWT_SECRET
+        sync: false # Set this in Render dashboard
+    healthCheck:
+      path: /api/health
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5

@@ -7,8 +7,10 @@
     "dev:api": "npx nx serve api",
     "dev:frontend": "npx nx serve frontend",
     "seed": "tsx prisma/seed.ts",
-    "build:api": "npx nx build api",
-    "build:frontend": "npx nx build frontend"
+    "build:api": "npx prisma generate --schema ./prisma/schema.prisma && npx nx build api",
+    "build:frontend": "npx nx build frontend",
+    "build": "npx prisma generate --schema ./prisma/schema.prisma && npx nx build api",
+    "start": "node dist/apps/api/main.js"
   },
   "private": true,
   "devDependencies": {

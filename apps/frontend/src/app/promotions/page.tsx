@@ -262,13 +262,13 @@ export default function PromotionsPage() {
                               {promo.type === 'PERCENTAGE_DISCOUNT' ? `${promo.value}%` : formatCurrency(promo.value)}
                             </div>
                           </div>
-                          {promo.minOrderAmount !== undefined && (
+                          {promo.minOrderAmount != null && (
                             <div>
                               <div style={{ color: 'var(--on-surface-dim)' }}>Min Order</div>
                               <div style={{ fontWeight: 600 }}>{formatCurrency(promo.minOrderAmount)}</div>
                             </div>
                           )}
-                          {promo.maxDiscountAmount !== undefined && (
+                          {promo.maxDiscountAmount != null && (
                             <div>
                               <div style={{ color: 'var(--on-surface-dim)' }}>Max Cap</div>
                               <div style={{ fontWeight: 600 }}>{formatCurrency(promo.maxDiscountAmount)}</div>

@@ -69,11 +69,16 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// ─── Start ───────────────────────────────────────────────────────────────────
-const port = process.env.PORT || 3334;
-const server = app.listen(port, () => {
-  console.log(`\n🍽️  BhojAI Restaurant OS API`);
-  console.log(`📡 Listening at http://localhost:${port}/api`);
-  console.log(`🏥 Health: http://localhost:${port}/api/health\n`);
-});
-server.on('error', console.error);
+// ─── Export app for serverless use
+export default app;
+
+// Start server only if not in serverless environment
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  const port = process.env.PORT || 3334;
+  const server = app.listen(port, () => {
+    console.log(`\n🍽️  BhojAI Restaurant OS API`);
+    console.log(`📡 Listening at http://localhost:${port}/api`);
+    console.log(`🏥 Health: http://localhost:${port}/api/health\n`);
+  });
+  server.on('error', console.error);
+}

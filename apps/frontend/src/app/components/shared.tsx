@@ -269,6 +269,7 @@ const navItems: Array<{
   badge: number;
   roles: AppRole[];
 }> = [
+<<<<<<< HEAD
     { href: '/analytics', icon: IconChart, label: 'Dashboard', badge: 0, roles: ['ADMIN', 'MANAGER'] },
     { href: '/pos/order', icon: IconClipboard, label: 'POS', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
     { href: '/kds', icon: IconKitchen, label: 'Kitchen', badge: 0, roles: ['ADMIN', 'MANAGER', 'CHEF', 'WAITER'] },
@@ -281,6 +282,20 @@ const navItems: Array<{
     { href: '/invoice', icon: IconPrint, label: 'Invoice', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
     { href: '/user', icon: IconUsers, label: 'User', badge: 0, roles: ['ADMIN', 'MANAGER'] },
   ];
+=======
+  { href: '/analytics', icon: IconChart, label: 'Dashboard', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/pos/order', icon: IconClipboard, label: 'POS', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/orders', icon: IconCard, label: 'Orders', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER', 'CHEF'] },
+  { href: '/kds', icon: IconKitchen, label: 'Kitchen', badge: 0, roles: ['ADMIN', 'MANAGER', 'CHEF', 'WAITER'] },
+  { href: '/pos/tables', icon: IconGrid, label: 'Table', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/pos/reservations', icon: IconClock, label: 'Reservations', badge: 1, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/menu', icon: IconMenu, label: 'Offering', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/inventory', icon: IconInventory, label: 'Inventory', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/pos/bills', icon: IconCash, label: 'Payments', badge: 14, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/invoice', icon: IconPrint, label: 'Invoice', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+  { href: '/user', icon: IconUsers, label: 'User', badge: 0, roles: ['ADMIN', 'MANAGER', 'WAITER'] },
+];
+>>>>>>> d581031 (first phase almost done)
 
 interface SidebarProps {
   activePath: string;

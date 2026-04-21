@@ -19,6 +19,7 @@ function ReceiptContent() {
 
   const [items, setItems] = useState<any[]>([]);
   const [customerInfo, setCustomerInfo] = useState({ name: 'Walk-in Customer', phone: '+91 98765 43210' });
+  const [billData, setBillData] = useState<any>(null);
   const [isGenerated, setIsGenerated] = useState(false);
 
   useEffect(() => {
@@ -26,8 +27,13 @@ function ReceiptContent() {
       setItems(DEMO_ITEMS);
       return;
     }
+<<<<<<< HEAD
     const token = sessionStorage.getItem('auth.token') || '';
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333/api';
+=======
+    const token = localStorage.getItem('auth.token') || '';
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3334/api';
+>>>>>>> d581031 (first phase almost done)
     fetch(`${API_BASE}/orders/${orderId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     })
@@ -39,12 +45,16 @@ function ReceiptContent() {
             name: i.menuItem?.name || 'Item',
             addons: i.notes || 'No add ons',
             qty: i.quantity,
-            amount: i.price * i.quantity
+            amount: (i.priceAtOrder || i.price || 0) * i.quantity
           })));
           setCustomerInfo({
             name: data.customerName || 'Walk-in Customer',
             phone: data.customerPhone || '+91 98765 43210'
           });
+          if (data.bill) {
+            setBillData(data.bill);
+            setIsGenerated(true);
+          }
         } else {
           setItems(DEMO_ITEMS);
         }
@@ -63,10 +73,10 @@ function ReceiptContent() {
     }));
   };
 
-  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const tax = subtotal * 0.18; // 18% GST
-  const serviceCharge = 0;
-  const total = subtotal + tax + serviceCharge - discountValue;
+  const subtotal = billData ? billData.subTotal : items.reduce((sum, item) => sum + item.amount, 0);
+  const tax = billData ? billData.taxAmount : (subtotal * 0.05); // Standardize to 5% if no bill
+  const serviceCharge = billData ? billData.serviceCharge : 0;
+  const total = billData ? billData.totalAmount : (subtotal + tax + serviceCharge - discountValue);
 
   const handlePrint = () => {
     window.print();
@@ -249,11 +259,11 @@ function ReceiptContent() {
                 <div style={{ fontSize: 12, color: '#333', marginBottom: 24 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginBottom: 4 }}>
                     <span>Total</span>
-                    <span>{total.toFixed(1)}</span>
+                    <span>{total.toFixed(2)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span>Amount Paid</span>
-                    <span>{total.toFixed(1)}</span>
+                    <span>{total.toFixed(2)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>Balance Amount</span>

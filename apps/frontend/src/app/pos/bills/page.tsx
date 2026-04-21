@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { Sidebar, ToastContainer, type ToastItem } from '../../components/shared';
-import { API_BASE } from '../../lib/api';
+import { API_BASE, apiRequest } from '../../lib/api';
 
 const API = API_BASE;
 const PAGE_SIZE = 15;
@@ -77,54 +77,24 @@ export default function BillsPage() {
   const fetchBills = async () => {
     setLoading(true);
     try {
+<<<<<<< HEAD
       const token = sessionStorage.getItem('auth.token') || '';
       const res = await fetch(`${API}/bills`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       const data = await res.json().catch(() => []);
       if (!res.ok) throw new Error(data?.error || 'Failed');
+=======
+      const data = await apiRequest('/bills');
+>>>>>>> d581031 (first phase almost done)
       const bills = Array.isArray(data) ? data : [];
-      if (bills.length === 0) throw new Error('No bills found, load dummy data');
       
       setAllBills(bills);
       if (bills.length > 0 && !selectedBill) setSelectedBill(bills[0]);
-    } catch {
-      // use demo data to match screenshot exactly
-      const demo: BillItem[] = Array.from({ length: 144 }, (_, i) => {
-        // Ensure at least one of each payment type exists
-        let method = 'CASH';
-        if (i === 0) method = 'CASH';
-        else if (i === 1) method = 'CARD';
-        else if (i === 2) method = 'UPI';
-        else method = ['CASH', 'CASH', 'CARD', 'CASH', 'UPI', 'CARD', 'CASH'][i % 7];
-
-        return {
-          id: `bill-${i + 1}`,
-          totalAmount: [704, 280, 352, 450, 980, 704, 530, 320, 990, 780, 640, 430][i % 12] || 500,
-          subTotal: 640,
-          taxAmount: 34,
-          discountAmount: 0,
-          serviceCharge: 30,
-          isPaid: true,
-          splitType: 'SINGLE',
-          createdAt: new Date(Date.now() - i * 3600000 * 2).toISOString(),
-          order: {
-            id: `ord-${i + 1}`,
-            orderNumber: `#${15 - (i % 3)}`,
-            customerName: ['Walk-In', 'Walk-In', 'Akash Patel', 'Rakesh Sharma', 'Jyoti Verma', 'Ayaan Shah', 'Mohit Khurana'][i % 7],
-            type: i % 4 === 0 ? 'WALK_IN' : 'DINE_IN',
-            table: { number: `T${(i % 5) + 1}`, label: `Table ${(i % 5) + 1}` },
-            items: [
-              { id: `oi-${i}-1`, quantity: 1, priceAtOrder: 240, menuItem: { name: 'Paneer Tikka' } },
-              { id: `oi-${i}-2`, quantity: 2, priceAtOrder: 280, menuItem: { name: 'Chicken Wings' } },
-            ],
-          },
-          payments: [{ id: `pay-${i}`, amount: [704, 280, 352, 450, 980, 704][i % 6] || 500, method }],
-          childBills: [],
-        };
-      });
-      setAllBills(demo);
-      setSelectedBill(demo[0]);
+    } catch (err: any) {
+      console.error('Failed to fetch bills:', err);
+      addToast({ title: 'Error', message: 'Failed to fetch real bill data. Showing empty list.', type: 'error' });
+      setAllBills([]);
     } finally {
       setLoading(false);
     }
@@ -134,17 +104,19 @@ export default function BillsPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return allBills.filter(b => {
-      const inv = generateInvoiceNumber(b).toLowerCase();
-      const ord = (b.order?.orderNumber || '').toLowerCase();
-      const cust = (b.order?.customerName || '').toLowerCase();
-      const matchSearch = !q || inv.includes(q) || ord.includes(q) || cust.includes(q);
-      
-      const payMethod = b.payments?.[0]?.method || 'CASH';
-      const matchPay = paymentFilter === 'All Payment Types' || payMethod === paymentFilter.toUpperCase();
+    return allBills
+      .filter(b => {
+        const inv = generateInvoiceNumber(b).toLowerCase();
+        const ord = (b.order?.orderNumber || '').toLowerCase();
+        const cust = (b.order?.customerName || '').toLowerCase();
+        const matchSearch = !q || inv.includes(q) || ord.includes(q) || cust.includes(q);
+        
+        const payMethod = b.payments?.[0]?.method || 'CASH';
+        const matchPay = paymentFilter === 'All Payment Types' || payMethod === paymentFilter.toUpperCase();
 
-      return matchSearch && matchPay;
-    });
+        return matchSearch && matchPay;
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [allBills, search, paymentFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -202,6 +174,11 @@ export default function BillsPage() {
       <p style="text-align:center;font-size:11px">Thank you! Visit again.</p>
     </body></html>`);
     win.print();
+  };
+
+  const handleViewInvoice = () => {
+    if (!selectedBill) return;
+    router.push(`/invoice/receipt?orderId=${selectedBill.order?.id}`);
   };
 
   const handleRefund = () => {
@@ -415,7 +392,7 @@ export default function BillsPage() {
                 </div>
 
                 {/* Invoice Attachment */}
-                <div onClick={printBill} style={{ background: '#fcfbf9', border: '1px solid #f0ede8', borderRadius: 8, padding: '12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='#f6f4f1'} onMouseLeave={e => e.currentTarget.style.background='#fcfbf9'}>
+                <div onClick={handleViewInvoice} style={{ background: '#fcfbf9', border: '1px solid #f0ede8', borderRadius: 8, padding: '12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='#f6f4f1'} onMouseLeave={e => e.currentTarget.style.background='#fcfbf9'}>
                   <span style={{ color: '#f97316' }}>📄</span>
                   <div style={{ fontSize: 13, color: '#0056b3', textDecoration: 'underline' }}>Invoice {generateInvoiceNumber(selectedBill)}</div>
                 </div>

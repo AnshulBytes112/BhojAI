@@ -53,6 +53,8 @@ interface OrderListItem {
   type: string;
   customerName?: string | null;
   createdAt: string;
+  scheduledAt?: string | null;
+  diningArea?: string | null;
   table?: { id: string; number: string; label?: string | null } | null;
   items: Array<{ id: string; quantity: number; menuItem?: { name?: string | null } | null }>;
   bill?: {
@@ -72,6 +74,8 @@ interface OrderDetail extends OrderListItem {
   notes?: string | null;
   customerPhone?: string | null;
   guestCount?: number | null;
+  scheduledAt?: string | null;
+  diningArea?: string | null;
 }
 
 interface AuditLog {
@@ -246,6 +250,8 @@ function OrderEntryContent() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [guestCount, setGuestCount] = useState(2);
   const [orderNotes, setOrderNotes] = useState('');
+  const [diningArea, setDiningArea] = useState('');
+  const [scheduledAt, setScheduledAt] = useState('');
 
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState('');
@@ -613,7 +619,7 @@ function OrderEntryContent() {
       addToast({
         icon: '🔔',
         title: 'Kitchen update',
-        message: `Order ${selectedOrder.orderNumber || selectedOrder.id.slice(0, 8)} is READY.`,
+        message: `Order ${selectedOrder.orderNumber || selectedOrder.id?.slice(0, 8)} is READY.`,
       });
     }
 
@@ -1109,6 +1115,8 @@ function OrderEntryContent() {
         customerPhone: customerPhone || undefined,
         guestCount,
         notes: orderNotes || undefined,
+        diningArea: diningArea || undefined,
+        scheduledAt: scheduledAt || undefined,
         items: cart.map((item) => ({
           menuItemId: item.id,
           quantity: item.quantity,
@@ -1125,7 +1133,9 @@ function OrderEntryContent() {
 
       setSelectedOrderId(created.id);
       setCart([]);
-      addToast({ icon: '✅', title: 'Order created', message: `Order ${created.orderNumber || created.id.slice(0, 8)} created.` });
+      const displayId = created.orderNumber || (created.id ? created.id.slice(0, 8) : 'unknown');
+      addToast({ icon: '✅', title: 'Order created', message: `Order ${displayId} created.` });
+
       await loadOrders();
     } catch (err) {
       addToast({ icon: '❌', title: 'Create order failed', message: (err as Error).message });
@@ -1210,12 +1220,20 @@ function OrderEntryContent() {
 
   const payOrderScoped = async () => {
     if (!selectedOrderId || !paymentAmount) return;
+    
+    // Allow any payment amount since it's computer-generated
+    const paymentNum = Number(paymentAmount);
+    console.log('Payment submission:', {
+      paymentAmount: paymentNum,
+      method: paymentMethod
+    });
+    
     setLoading((s) => ({ ...s, orderPayment: true }));
     try {
       await callApi(`/orders/${selectedOrderId}/payment`, {
         method: 'POST',
         body: JSON.stringify({
-          amount: Number(paymentAmount),
+          amount: paymentNum,
           method: paymentMethod,
           transactionId: transactionId || undefined,
         }),
@@ -1487,19 +1505,53 @@ function OrderEntryContent() {
     return auditLogs.filter((log) => log.action.toLowerCase().includes(q) || log.description.toLowerCase().includes(q));
   }, [auditActionFilter, auditLogs]);
 
-  const openPaymentModal = () => {
+  const openPaymentModal = async () => {
     if (!selectedOrderId) {
-      addToast({ icon: '⚠️', title: 'Select order', message: 'Choose an order first for payment.' });
+      addToast({ icon: '!', title: 'No order selected', message: 'Select an order to take payment.' });
       return;
     }
-    if (!selectedOrder?.bill?.id) {
-      addToast({ icon: '⚠️', title: 'No bill', message: 'Generate a bill before taking payment.' });
-      return;
+    
+    // Always fetch fresh data to avoid stale calculations
+    try {
+      const data = await callApi(`/orders/${selectedOrderId}`);
+      const freshOrder = data as OrderDetail;
+      
+      if (!freshOrder?.bill) {
+        addToast({ icon: '!', title: 'No bill', message: 'Generate a bill before taking payment.' });
+        return;
+      }
+      
+      const billTotal = Number(freshOrder.bill.totalAmount || 0);
+      const paid = (freshOrder.bill.payments || []).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0);
+      const due = Math.max(billTotal - paid, 0);
+      
+      // Debug logging
+      console.log('Payment debug (fresh data):', {
+        billTotal,
+        subTotal: freshOrder.bill.subTotal,
+        taxAmount: freshOrder.bill.taxAmount,
+        serviceCharge: freshOrder.bill.serviceCharge,
+        discountAmount: freshOrder.bill.discountAmount,
+        roundOff: freshOrder.bill.roundOff,
+        paid,
+        due,
+        currentPaymentAmount: paymentAmount
+      });
+      
+      // Set payment amount to exact due amount from fresh data
+      if (due > 0) {
+        const exactDue = due.toFixed(2);
+        console.log('Setting payment amount to:', exactDue);
+        setPaymentAmount(exactDue);
+      } else {
+        console.log('Bill already fully paid, setting empty amount');
+        setPaymentAmount('');
+      }
+      
+      setIsPaymentModalOpen(true);
+    } catch (err) {
+      addToast({ icon: '!', title: 'Failed to load order', message: 'Could not fetch order details for payment.' });
     }
-    if (!paymentAmount && billDue > 0) {
-      setPaymentAmount(billDue.toFixed(2));
-    }
-    setIsPaymentModalOpen(true);
   };
 
   const canManageAudit = userRole === 'MANAGER' || userRole === 'ADMIN';
@@ -1611,7 +1663,47 @@ function OrderEntryContent() {
             </div>
           </div>
 
+<<<<<<< HEAD
           <div className="cart-panel" style={{ width: 440 }}>
+=======
+          {/* RIGHT COLUMN: Cart Panel */}
+          <div className="pos-right-side">
+            <div className="pos-top-filters">
+              <div className="input-with-icon" style={{ flex: 1 }}>
+                <span className="input-icon"><IconSearch /></span>
+                <input className="input-field" placeholder="Search in Existing" />
+              </div>
+            </div>
+            <div style={{ padding: '0 16px 16px', display: 'flex', gap: 8, borderBottom: '1px solid var(--outline-variant)' }}>
+              <select className="input-field" style={{ flex: 1 }} value={type} onChange={(e) => setType(e.target.value as any)}>
+                <option value="DINE_IN">Dine In</option>
+                <option value="TAKEAWAY">Takeaway</option>
+                <option value="DELIVERY">Delivery</option>
+              </select>
+              <select className="input-field" style={{ flex: 1 }} value={tableId} onChange={(e) => setTableId(e.target.value)}>
+                <option value="">Select Table</option>
+                <option value={preselectedTableId || 'T1'}>{tableName !== 'Walk-in' ? tableName : (preselectedTableId || 'T1')}</option>
+              </select>
+            </div>
+            <div style={{ padding: '0 16px 16px', display: 'flex', gap: 8, borderBottom: '1px solid var(--outline-variant)' }}>
+              <select className="input-field" style={{ flex: 1 }} value={diningArea} onChange={(e) => setDiningArea(e.target.value)}>
+                <option value="">Select Dining Area</option>
+                <option value="Indoor">Indoor</option>
+                <option value="Outdoor">Outdoor</option>
+                <option value="Rooftop">Rooftop</option>
+                <option value="Private">Private Room</option>
+              </select>
+              <input 
+                className="input-field" 
+                style={{ flex: 1 }} 
+                type="datetime-local" 
+                value={scheduledAt} 
+                onChange={(e) => setScheduledAt(e.target.value)}
+                placeholder="Schedule Order (Optional)"
+              />
+            </div>
+
+>>>>>>> d581031 (first phase almost done)
             <div className="cart-header">
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>Order Cart</div>
@@ -1966,7 +2058,7 @@ function OrderEntryContent() {
                 return (
                   <div key={item.id} style={{ border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-md)', padding: 10, display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', background: 'var(--surface-low)' }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{item.menuItem?.name || `Item ${item.id.slice(0, 8)}`}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{item.menuItem?.name || `Item ${item.id?.slice(0, 8)}`}</div>
                       <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>Qty: {item.quantity}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -2208,7 +2300,7 @@ function OrderEntryContent() {
                   <div key={bill.id} style={{ border: '1px solid var(--outline-variant)', background: 'var(--surface-low)', borderRadius: 'var(--radius-lg)', padding: 10, display: 'grid', gap: 6 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 800 }}>{bill.billNumber || bill.id.slice(0, 8)}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800 }}>{bill.billNumber || bill.id?.slice(0, 8) || 'N/A'}</div>
                         <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>
                           {bill.order?.orderNumber || bill.order?.id || 'Order unavailable'}
                           {bill.order?.table?.number ? ` • Table ${bill.order.table.number}` : ''}
@@ -2235,7 +2327,7 @@ function OrderEntryContent() {
                           if (bill.order?.id) {
                             setSelectedOrderId(bill.order.id);
                             setIsBillHistoryModalOpen(false);
-                            addToast({ icon: '🧾', title: 'Order selected', message: `Loaded ${bill.order.orderNumber || bill.order.id.slice(0, 8)}` });
+                            addToast({ icon: '🧾', title: 'Order selected', message: `Loaded ${bill.order.orderNumber || bill.order.id?.slice(0, 8)}` });
                           } else {
                             addToast({ icon: '⚠️', title: 'Order missing', message: 'This bill is not linked to a retrievable order.' });
                           }
@@ -2307,7 +2399,7 @@ function OrderEntryContent() {
                 <div className="thermal-divider" />
                 <div className="thermal-print-items">
                   {(reprintPayload?.bill?.order?.items || selectedOrder?.items || []).map((item) => {
-                    const name = item.menuItem?.name || `Item ${item.id.slice(0, 6)}`;
+                    const name = item.menuItem?.name || `Item ${item.id?.slice(0, 6)}`;
                     const quantity = Number(item.quantity || 0);
                     const unit = Number(item.priceAtOrder || 0) + Number(item.modifierTotal || 0);
                     const amount = Math.max(quantity * unit, 0);

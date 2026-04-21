@@ -32,6 +32,7 @@ interface Table {
     total: number;
     itemCount: number;
     createdAt: string;
+    customerName?: string | null;
   };
 }
 
@@ -171,6 +172,7 @@ function TablesPage() {
                 total: billTotal,
                 itemCount,
                 createdAt: liveOrder.createdAt,
+                customerName: liveOrder.customerName || null,
               }
             : undefined,
         };
@@ -316,28 +318,53 @@ function TablesPage() {
     e.preventDefault();
     if (!canManageTables || !tableForm.number.trim()) return;
     setLoading(true);
+    
+    const tableName = tableForm.number.trim();
+    const token = localStorage.getItem('auth.token');
+    
     try {
+<<<<<<< HEAD
       const token = sessionStorage.getItem('auth.token');
+=======
+      console.log('Creating table:', { tableName, token: token ? 'Present' : 'Missing', API });
+      
+      const requestBody = {
+        number: tableName,
+        label: tableForm.label.trim() || tableName,
+        seatCapacity: Number(tableForm.seatCapacity || 4),
+        area: tableForm.area || 'MAIN_HALL',
+      };
+      
+      console.log('Request payload:', requestBody);
+      
+>>>>>>> d581031 (first phase almost done)
       const res = await fetch(`${API}/tables`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          number: tableForm.number.trim(),
-          label: tableForm.label.trim() || tableForm.number.trim(),
-          seatCapacity: Number(tableForm.seatCapacity || 4),
-          area: tableForm.area || 'MAIN_HALL',
-        }),
+        body: JSON.stringify(requestBody),
       });
+      
+      console.log('Response status:', res.status);
+      
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload?.error || 'Failed to create table');
-      showToast({ icon: '✅', title: 'Table created', message: `${tableForm.number.trim()} is now available.` });
-      setShowCreateModal(false);
+      console.log('Response payload:', payload);
+      
+      if (!res.ok) throw new Error(payload?.error || `Failed to create table (${res.status})`);
+      
+      // Reset form and close modal first
       setTableForm({ number: '', label: '', seatCapacity: '4', area: 'MAIN_HALL' });
+      setShowCreateModal(false);
+      
+      // Fetch tables to show the new one immediately
       await fetchTables();
+      
+      // Show success toast after data is loaded
+      showToast({ icon: '✅', title: 'Table created', message: `${tableName} is now available.` });
     } catch (error) {
+      console.error('Create table error:', error);
       showToast({ icon: '❌', title: 'Create failed', message: (error as Error).message });
     } finally {
       setLoading(false);
@@ -656,6 +683,11 @@ function TablesPage() {
                   {/* Order info */}
                   {table.currentOrder && (
                     <>
+                      {table.currentOrder.customerName && (
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--on-surface)', marginTop: 4, padding: '4px 6px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 6 }}>
+                          👤 {table.currentOrder.customerName}
+                        </div>
+                      )}
                       <div className="table-amount">
                         ₹{table.currentOrder.total.toLocaleString('en-IN')}
                         <span style={{ fontSize: 11, color: 'var(--on-surface-dim)', fontWeight: 500, marginLeft: 4 }}>

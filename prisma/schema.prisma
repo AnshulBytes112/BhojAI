@@ -147,8 +147,11 @@ model Order {
   bill          Bill?
   kots          KOT[]
   auditLogs     AuditLog[]
+  scheduledAt   DateTime?
+  diningArea    String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+
 }
 
 model KOT {

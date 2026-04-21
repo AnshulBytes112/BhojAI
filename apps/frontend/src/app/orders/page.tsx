@@ -23,6 +23,8 @@ interface Order {
   type: string;
   customerName?: string | null;
   createdAt: string;
+  scheduledAt?: string | null;
+  diningArea?: string | null;
   table?: { id: string; number: string; label?: string | null } | null;
   items: Array<{ 
     id: string; 
@@ -358,6 +360,9 @@ export default function OrdersPage() {
                         {order.table && (
                           <span>Table {order.table.number}</span>
                         )}
+                        {order.diningArea && (
+                          <span>{order.diningArea}</span>
+                        )}
                         {order.customerName && (
                           <span>{order.customerName}</span>
                         )}
@@ -493,6 +498,12 @@ export default function OrdersPage() {
                       <div>{selectedOrder.table.number}</div>
                     </div>
                   )}
+                  {selectedOrder.diningArea && (
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>Dining Area</div>
+                      <div>{selectedOrder.diningArea}</div>
+                    </div>
+                  )}
                   {selectedOrder.customerPhone && (
                     <div>
                       <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>Phone</div>
@@ -503,6 +514,12 @@ export default function OrdersPage() {
                     <div>
                       <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>Guests</div>
                       <div>{selectedOrder.guestCount}</div>
+                    </div>
+                  )}
+                  {selectedOrder.scheduledAt && (
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--on-surface-dim)' }}>Scheduled</div>
+                      <div>{formatDateTime(selectedOrder.scheduledAt)}</div>
                     </div>
                   )}
                 </div>
